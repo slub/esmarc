@@ -1297,7 +1297,7 @@ def worker(ldj):
 entities = {
     "resources": {   # mapping is 1:1 like works
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
-        "single:@context": "http://localhost:9200/context/jsonld-context/20012020/_source",
+        "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: ["001"]},
         #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
@@ -1339,7 +1339,7 @@ entities = {
     },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
-        "single:@context": "http://localhost:9200/context/jsonld-context/20012020/_source",
+        "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
@@ -1369,7 +1369,7 @@ entities = {
     },
     "persons": {
         "single:@type": [URIRef(u'http://schema.org/Person')],
-        "single:@context": "http://localhost:9200/context/jsonld-context/20012020/_source",
+        "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
@@ -1392,7 +1392,7 @@ entities = {
     },
     "organizations": {
         "single:@type": [URIRef(u'http://schema.org/Organization')],
-        "single:@context": "http://localhost:9200/context/jsonld-context/20012020/_source",
+        "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
@@ -1411,7 +1411,7 @@ entities = {
     },
     "geo": {
         "single:@type": [URIRef(u'http://schema.org/Place')],
-        "single:@context": "http://localhost:9200/context/jsonld-context/20012020/_source",
+        "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
@@ -1427,7 +1427,7 @@ entities = {
     },
     "topics": {
         "single:@type": [URIRef(u'http://schema.org/Thing')],
-        "single:@context": "http://localhost:9200/context/jsonld-context/20012020/_source",
+        "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
@@ -1447,7 +1447,7 @@ entities = {
     },
     "events": {
         "single:@type": [URIRef(u'http://schema.org/Event')],
-        "single:@context": "http://localhost:9200/context/jsonld-context/20012020/_source",
+        "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
