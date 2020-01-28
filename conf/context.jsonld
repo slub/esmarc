@@ -1,0 +1,12 @@
+{
+    "@context": {
+        "@vocab": "http://schema.org/",
+        "foaf": "http://xmlns.com/foaf/0.1/",
+        "dnb": "https://d-nb.info/standards/elementset/gnd#",
+        "preferredName": "dnb:preferredName",
+        "name": {
+            "@container": "@language",
+            "@id": "name"
+        }
+    }
+}
