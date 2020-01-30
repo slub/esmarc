@@ -68,8 +68,7 @@ def get_wdid(_ids, rec):
     if changed:
         return rec
 
-
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser(description='enrich ES by WD!')
     parser.add_argument('-host', type=str, default="127.0.0.1",
                         help='hostname or IP-Address of the ElasticSearch-node to use, default is localhost.')
@@ -127,3 +126,7 @@ if __name__ == "__main__":
                     rec = record
             if record or args.pipeline:
                 print(json.dumps(rec, indent=None))
+
+
+if __name__ == "__main__":
+    run()

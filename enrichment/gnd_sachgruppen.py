@@ -82,7 +82,7 @@ def process(record, dnb_uri, server):
     return record if change else None
 
 
-if __name__ == "__main__":
+def run():        
     parser = argparse.ArgumentParser(
         description='enrich ES by GND Sachgruppen!!')
     parser.add_argument('-host', type=str, default="127.0.0.1",
@@ -148,3 +148,7 @@ if __name__ == "__main__":
                     rec = record
             if record or args.pipeline:
                 print(json.dumps(rec, indent=None))
+
+
+if __name__ == "__main__":
+    run()

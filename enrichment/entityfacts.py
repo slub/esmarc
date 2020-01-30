@@ -55,8 +55,7 @@ def entityfacts(record, gnd, ef_instances):
         time.sleep(5)
         return entityfacts(record, gnd, ef_instances)
 
-
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser(description='enrich ES by EF!')
     parser.add_argument('-host', type=str, default="127.0.0.1",
                         help='hostname or IP-Address of the ElasticSearch-node to use, default is localhost.')
@@ -134,3 +133,7 @@ if __name__ == "__main__":
                     rec = record
             if record or args.pipeline:
                 print(json.dumps(rec, indent=None))
+
+
+if __name__ == "__main__":
+    run()
