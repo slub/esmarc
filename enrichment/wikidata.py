@@ -127,7 +127,7 @@ def run():
                 print(json.dumps(rec, indent=None))
     else:
         body = {"query": {"bool": {"filter": {"bool": {"should": [], "must_not": [
-                   {"match": {"sameAs.@id.publisher.abbr,keyword": "WIKIDATA"}}
+                   {"match": {"sameAs.publisher.abbr.keyword": "WIKIDATA"}}
                ]}}}}}
         for key in lookup_table_wdProperty:
             body["query"]["bool"]["filter"]["bool"]["should"].append(
