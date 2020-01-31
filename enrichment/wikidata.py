@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import argparse
 import json
@@ -38,6 +38,13 @@ def get_wdid(_ids, rec):
         return None
     changed = False
     url = "https://query.wikidata.org/bigdata/namespace/wdq/sparql"
+    # Define header according to wikidata's User-Agent policy
+    # see: https://meta.wikimedia.org/wiki/User-Agent_policy
+    headers = {
+            'User-Agent': 'efre-lod-enrich-wikidata-bot/0.1 '
+                          '(https://github.com/slub/esmarc) '
+                          'python-requests/2.22'
+            }
 
     or_mapping = []
     for _id in _ids:
@@ -52,7 +59,7 @@ def get_wdid(_ids, rec):
         # Still builds an normal query without UNION when or_mapping List only contains one element
         query = '''SELECT DISTINCT ?item \nWHERE {{\n\t{{ {UNION} }}\n}}'''.format(
             UNION="} UNION\n\t\t {".join(or_mapping))
-        data = requests.get(url, params={'query': query, 'format': 'json'})
+        data = requests.get(url, headers=headers, params={'query': query, 'format': 'json'})
         if data.ok and len(data.json().get("results").get("bindings")) > 0:
             for item in data.json().get("results").get("bindings"):
                 rec["sameAs"] = litter(
@@ -65,6 +72,11 @@ def get_wdid(_ids, rec):
                             "@type": "Dataset",
                             "@id": item.get("item").get("value")}})
                 changed = True
+        elif not data.ok:
+            raise ConnectionError("{status}: {message}"
+                                  .format(status=data.status_code,
+                                          message=data.content)
+                                 )
     if changed:
         return rec
 
@@ -106,7 +118,7 @@ def run():
         for line in sys.stdin:
             rec = json.loads(line)
             record = None
-            if rec and isinstance(rec.get("sameAs"), list) and not "wikidata.org" in str(rec["sameAs"]):
+            if rec and isinstance(rec.get("sameAs"), list):
                 record = get_wdid([x["@id"] for x in rec["sameAs"]], rec)
                 if record:
                     rec = record
