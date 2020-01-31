@@ -106,7 +106,7 @@ def run():
         for line in sys.stdin:
             rec = json.loads(line)
             record = None
-            if rec and isinstance(rec.get("sameAs"), list) and not "wikidata.org" in str(record["sameAs"]):
+            if rec and isinstance(rec.get("sameAs"), list) and not "wikidata.org" in str(rec["sameAs"]):
                 record = get_wdid([x["@id"] for x in rec["sameAs"]], rec)
                 if record:
                     rec = record
