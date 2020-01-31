@@ -76,9 +76,10 @@ def get_wdid(_ids, rec):
             raise ConnectionError("{status}: {message}"
                                   .format(status=data.status_code,
                                           message=data.content)
-                                 )
+                                  )
     if changed:
         return rec
+
 
 def run():
     parser = argparse.ArgumentParser(description='enrich ES by WD!')
