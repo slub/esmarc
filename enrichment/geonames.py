@@ -22,7 +22,15 @@ def get_gnid(rec):
         if r.ok and isiter(r.json().get("geonames")):
             for geoNameRecord in r.json().get("geonames"):
                 if rec.get("name") in geoNameRecord.get("name") or geoNameRecord.get("name") in rec.get("name"):    #match!
-                    rec["sameAs"]=litter(rec.get("sameAs"),"http://www.geonames.org/"+str(geoNameRecord.get("geonameId"))+"/")
+                    newSameAs={'@id': "https://sws.geonames.org/"+str(geoNameRecord.get("geonameId"))+"/",
+                                       'publisher': {'abbr': "geonames",
+                                                     'preferredName': "GeoNames",
+                                       "isBasedOn": {"@type": "Dataset",
+                                                     "@id": "https://sws.geonames.org/"+str(record.get("id"))+"/"
+                                                     }
+                                       }
+                                }
+                    rec["sameAs"]=litter(rec.get("sameAs"),newSameAs)
                     changed=True
         else:
             if r.json().get("status").get("message").startswith("the hourly limit") or r.json().get("status").get("message").startswith("the daily limit"):
@@ -48,8 +56,7 @@ def get_gnid_by_es(rec,host,port,index,typ):
         
         if records:
             for record in records:
-                if record.get("name") in rec.get("name") or rec.get("name") in record.get("name") or len(records)==1 or rec.get("name") in record.get("alternateName"):
-                #eprint(rec.get("name"),record.get("name"),record.get("id"),record.get("location"))
+                if record.get("preferredName") in rec.get("name") or rec.get("name") in record.get("preferredName") or len(records)==1 or rec.get("name") in record.get("alternateName"):
                     newSameAs={'@id': "https://sws.geonames.org/"+str(record.get("id"))+"/",
                                        'publisher': {'abbr': "geonames",
                                                      'preferredName': "GeoNames",
