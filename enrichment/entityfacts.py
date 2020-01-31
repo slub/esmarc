@@ -98,9 +98,6 @@ def run():
         search_host = slashsplit[2].rsplit(":")[0]
         if isint(args.searchserver.split(":")[2].rsplit("/")[0]):
             search_port = args.searchserver.split(":")[2].split("/")[0]
-        search_index = args.searchserver.split("/")[3]
-        if len(slashsplit) > 4:
-            search_type = slashsplit[4]
 
     ef_instances = ["http://"+search_host+":"+search_port +
                     "/ef/gnd/", "http://hub.culturegraph.org/entityfacts/"]
@@ -111,7 +108,7 @@ def run():
             record = None
             if isinstance(rec.get("sameAs"), list) and "d-nb.info" in str(rec["sameAs"]):
                 for item in rec.get("sameAs"):
-                    if "d-nb.info" in item["@id"] and len(item.split("/")) > 4:
+                    if "d-nb.info" in item["@id"] and len(item["@id"].split("/")) > 4:
                         gnd = item["@id"].rstrip().split("/")[-1]
             if gnd:
                 record = entityfacts(rec, gnd, ef_instances)

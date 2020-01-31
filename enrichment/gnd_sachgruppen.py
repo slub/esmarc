@@ -127,7 +127,7 @@ def run():
             gnd = None
             if isinstance(rec.get("sameAs"), list) and "d-nb.info" in str(rec.get("sameAs")):
                 for item in rec.get("sameAs"):
-                    if "d-nb.info" in item["@id"] and len(item.split("/")) > 4:
+                    if "d-nb.info" in item["@id"] and len(item["@id"].split("/")) > 4:
                         gnd = item["@id"].rstrip().split("/")[-1]
             if gnd:
                 record = process(rec, gnd, args.searchserver)
