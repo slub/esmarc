@@ -1345,7 +1345,7 @@ entities = {
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
-        "single:preferredName": {getName: ["100..t", "110..t", "130..t", "111..t"]},
+        "single:preferredName": {getName: ["100..t", "110..t", "130..t", "111..t", "130..a"]},
         "single:alternativeHeadline": {getmarc: ["245..c"]},
         "multi:alternateName": {getmarc: ["400..t", "410..t", "411..t", "430..t", "240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
         "multi:author": {get_subfield: "500"},
