@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 import requests
-from es2json import esgenerator, isint, litter
+from es2json import esgenerator, isint, litter, eprint
 
 
 lookup_table_wdProperty = {"http://viaf.org": {"property": "P214",
@@ -73,10 +73,9 @@ def get_wdid(_ids, rec):
                             "@id": item.get("item").get("value")}})
                 changed = True
         elif not data.ok:
-            raise ConnectionError("{status}: {message}"
-                                  .format(status=data.status_code,
-                                          message=data.content)
-                                  )
+            eprint("wikidata: Connection Error {status}: \'{message}\'"
+                   .format(status=data.status_code, message=data.content)
+                   )
     if changed:
         return rec
 
@@ -119,7 +118,8 @@ def run():
         for line in sys.stdin:
             rec = json.loads(line)
             record = None
-            if rec and isinstance(rec.get("sameAs"), list):
+            if (rec and isinstance(rec.get("sameAs"), list)
+                    and "wikidata.org" not in str(rec["sameAs"])):
                 record = get_wdid([x["@id"] for x in rec["sameAs"]], rec)
                 if record:
                     rec = record
@@ -127,7 +127,8 @@ def run():
                 print(json.dumps(rec, indent=None))
     else:
         body = {"query": {"bool": {"filter": {"bool": {"should": [], "must_not": [
-            {"prefix": {"sameAs.@id.keyword": "http://www.wikidata.org"}}]}}}}}
+                   {"match": {"sameAs.@id.publisher.abbr,keyword": "WIKIDATA"}}
+               ]}}}}}
         for key in lookup_table_wdProperty:
             body["query"]["bool"]["filter"]["bool"]["should"].append(
                 {"prefix": {"sameAs.@id.keyword": key}})
