@@ -45,8 +45,13 @@ def get_wptitle(record):
     if not wd_id:
         return None
     
-    url = "https://www.wikidata.org/w/api.php?action=wbgetentities&ids={wd}&format=json&props=sitelinks".format(wd=wd_id)
-    wd_response = requests.get(url)
+    headers = {
+            'User-Agent': 'efre-lod-enrich-wikipedia-bot/0.1 '
+                          '(https://github.com/slub/esmarc) '
+                          'python-requests/2.22'
+            }
+    
+    wd_response = requests.get("https://www.wikidata.org/w/api.php",headers=headers, params={'action':'wbgetentities', 'ids': wd_id, 'props': 'sitelinks', 'format': 'json'})
     if not wd_response.ok:
         eprint("wikipedia: Connection Error {status}: \'{message}\'"
                .format(status=wd_response.status_code, wd_response=data.content)
