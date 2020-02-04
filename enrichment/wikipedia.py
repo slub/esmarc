@@ -110,7 +110,7 @@ def run():
                 args.id = slashsplit[5]
 
     if args.stdin:
-        iterable = args.stdin
+        iterable = sys.stdin
     else:
         es_query = {"query": {"match": {"sameAs.publisher.abbr.keyword": "WIKIDATA"}}}
         iterable = esgenerator(host=args.host, port=args.port, index=args.index, type=args.type, id=args.id, headless=True, body=es_query)
