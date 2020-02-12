@@ -1,10 +1,10 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import argparse
 import json
 import sys
 import requests
-from es2json import esgenerator, isint, litter
+from es2json import esgenerator, isint, litter, eprint
 
 
 lookup_table_wdProperty = {"http://viaf.org": {"property": "P214",
@@ -38,6 +38,13 @@ def get_wdid(_ids, rec):
         return None
     changed = False
     url = "https://query.wikidata.org/bigdata/namespace/wdq/sparql"
+    # Define header according to wikidata's User-Agent policy
+    # see: https://meta.wikimedia.org/wiki/User-Agent_policy
+    headers = {
+            'User-Agent': 'efre-lod-enrich-wikidata-bot/0.1 '
+                          '(https://github.com/slub/esmarc) '
+                          'python-requests/2.22'
+            }
 
     or_mapping = []
     for _id in _ids:
@@ -52,7 +59,7 @@ def get_wdid(_ids, rec):
         # Still builds an normal query without UNION when or_mapping List only contains one element
         query = '''SELECT DISTINCT ?item \nWHERE {{\n\t{{ {UNION} }}\n}}'''.format(
             UNION="} UNION\n\t\t {".join(or_mapping))
-        data = requests.get(url, params={'query': query, 'format': 'json'})
+        data = requests.get(url, headers=headers, params={'query': query, 'format': 'json'})
         if data.ok and len(data.json().get("results").get("bindings")) > 0:
             for item in data.json().get("results").get("bindings"):
                 rec["sameAs"] = litter(
@@ -65,8 +72,13 @@ def get_wdid(_ids, rec):
                             "@type": "Dataset",
                             "@id": item.get("item").get("value")}})
                 changed = True
+        elif not data.ok:
+            eprint("wikidata: Connection Error {status}: \'{message}\'"
+                   .format(status=data.status_code, message=data.content)
+                   )
     if changed:
         return rec
+
 
 def run():
     parser = argparse.ArgumentParser(description='enrich ES by WD!')
@@ -106,7 +118,8 @@ def run():
         for line in sys.stdin:
             rec = json.loads(line)
             record = None
-            if rec and isinstance(rec.get("sameAs"), list) and not "wikidata.org" in str(rec["sameAs"]):
+            if (rec and isinstance(rec.get("sameAs"), list)
+                    and "wikidata.org" not in str(rec["sameAs"])):
                 record = get_wdid([x["@id"] for x in rec["sameAs"]], rec)
                 if record:
                     rec = record
@@ -114,7 +127,8 @@ def run():
                 print(json.dumps(rec, indent=None))
     else:
         body = {"query": {"bool": {"filter": {"bool": {"should": [], "must_not": [
-            {"prefix": {"sameAs.@id.keyword": "http://www.wikidata.org"}}]}}}}}
+                   {"match": {"sameAs.publisher.abbr.keyword": "WIKIDATA"}}
+               ]}}}}}
         for key in lookup_table_wdProperty:
             body["query"]["bool"]["filter"]["bool"]["should"].append(
                 {"prefix": {"sameAs.@id.keyword": key}})
