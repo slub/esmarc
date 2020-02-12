@@ -90,9 +90,8 @@ def entityfacts(record, ef_instances):
         if r.ok:
             data = r.json()
         else:
-            # WHAT TO DO HERE?
-            eprint("entityfacts: could not request {}".
-                   format(url + str(gnd_id)))
+            # ID not found in the respective source
+            # just continue
             continue
 
         sameAsses = []  # ba-dum-ts
@@ -251,6 +250,7 @@ def run():
 
         if rec_out:
             print(json.dumps(rec_out, indent=None))
+
         elif args.pipeline:
             print(json.dumps(rec_in, indent=None))
 
