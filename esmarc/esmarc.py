@@ -724,7 +724,7 @@ def get_subfield(jline, key, entity):
                         sset[subfield_code] = litter(
                             sset.get(subfield_code), subfield[subfield_code])
                 node = {}
-                if sset.get("t"):
+                if sset.get("t"):  # if this field got an t, then its a Werktiteldaten, we use this field in another function then
                     continue
                 for typ in ["D", "d"]:
                     if sset.get(typ):  # http://www.dnb.de/SharedDocs/Downloads/DE/DNB/wir/marc21VereinbarungDatentauschTeil1.pdf?__blob=publicationFile Seite 14
@@ -742,17 +742,23 @@ def get_subfield(jline, key, entity):
                             node["@type"] += "CreativeWork"
                         elif sset.get(typ) == "g":
                             node["@type"] += "Place"
+                        elif sset.get(typ) == "s":
+                            node["@type"] += "Thing"
+                            entityType = "topics"
                         else:
                             node.pop("@type")
-                if entityType == "resources" and sset.get("w") and not sset.get("0"):
-                    sset["0"] = sset.get("w")
+                if entityType == "resources":
+                    if sset.get("w") and not sset.get("0"):
+                        sset["0"] = sset.get("w")
+                    if sset.get("v"):
+                        node["position"] = sset["v"]
                 if sset.get("0"):
                     if isinstance(sset["0"], list) and entityType == "persons":
                         for n, elem in enumerate(sset["0"]):
                             if elem and "DE-576" in elem:
                                 sset["0"].pop(n)
                     uri = gnd2uri(sset.get("0"))
-                    if isinstance(uri, str) and uri.startswith(base_id) and not entityType == "resources":
+                    if isinstance(uri, str) and uri.startswith(base_id) and entityType != "resources":
                         node["@id"] = id2uri(uri, entityType)
                     elif isinstance(uri, str) and uri.startswith(base_id) and entityType == "resources":
                         node["sameAs"] = base_id + \
@@ -782,32 +788,12 @@ def get_subfield(jline, key, entity):
                     for elem in sset.get("a"):
                         if len(elem) > 1:
                             node["name"] = litter(node.get("name"), elem)
-
-                if sset.get("v") and entityType == "resources":
-                    node["position"] = sset["v"]
                 if sset.get("i"):
                     node["description"] = sset["i"]
                 if sset.get("n") and entityType == "events":
                     node["position"] = sset["n"]
-                for typ in ["D", "d"]:
-                    if sset.get(typ):  # http://www.dnb.de/SharedDocs/Downloads/DE/DNB/wir/marc21VereinbarungDatentauschTeil1.pdf?__blob=publicationFile Seite 14
-                        node["@type"] = "http://schema.org/"
-                        if sset.get(typ) == "p":
-                            node["@type"] += "Person"
-                        elif sset.get(typ) == "b":
-                            node["@type"] += "Organization"
-                        elif sset.get(typ) == "f":
-                            node["@type"] += "Event"
-                        elif sset.get(typ) == "u":
-                            node["@type"] += "CreativeWork"
-                        elif sset.get(typ) == "g":
-                            node["@type"] += "Place"
-                        else:
-                            node.pop("@type")
-
                 if node:
                     data = litter(data, node)
-                    # data.append(node)
         if data:
             return ArrayOrSingleValue(data)
 
