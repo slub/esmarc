@@ -76,6 +76,7 @@ def entityfacts(record, ef_instances):
     if not isinstance(record.get("sameAs"), list):
         return None
 
+    gnd_id = None
     for item in record.get("sameAs"):
         if "d-nb.info" in item["@id"] and len(item["@id"].split("/")) > 4:
             gnd_id = item["@id"].split("/")[-1]
