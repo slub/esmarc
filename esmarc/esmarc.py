@@ -14,7 +14,7 @@ import os.path
 import re
 import gzip
 from es2json import esgenerator, esidfilegenerator, esfatgenerator, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from swb_fix import marc2relation, isil2sameAs
+from swb_fix import marc2relation, isil2sameAs, map_entities, map_types
 
 es = None
 entities = None
@@ -729,22 +729,9 @@ def get_subfield(jline, key, entity):
                 for typ in ["D", "d"]:
                     if sset.get(typ):  # http://www.dnb.de/SharedDocs/Downloads/DE/DNB/wir/marc21VereinbarungDatentauschTeil1.pdf?__blob=publicationFile Seite 14
                         node["@type"] = "http://schema.org/"
-                        if sset.get(typ) == "p":
-                            node["@type"] += "Person"
-                            entityType = "persons"
-                        elif sset.get(typ) == "b":
-                            node["@type"] += "Organization"
-                            entityType = "organizations"
-                        elif sset.get(typ) == "f":
-                            node["@type"] += "Event"
-                            entityType = "events"
-                        elif sset.get(typ) == "u":
-                            node["@type"] += "CreativeWork"
-                        elif sset.get(typ) == "g":
-                            node["@type"] += "Place"
-                        elif sset.get(typ) == "s":
-                            node["@type"] += "Thing"
-                            entityType = "topics"
+                        if sset.get(typ) in map_entities and sset.get(typ) in map_types:
+                            node["@type"] += map_types.get(sset[typ])
+                            entityType = map_entities.get(sset[typ])
                         else:
                             node.pop("@type")
                 if entityType == "resources":
@@ -1056,17 +1043,6 @@ def single_or_multi(ldj, entity):
                     if not isinstance(value, list):
                         ldj[key] = [value]
     return ldj
-
-
-map_entities = {
-    "p": "persons",  # Personen, individualisiert
-    "n": "persons",  # Personen, namen, nicht individualisiert
-    "s": "topics",  # Schlagwörter/Berufe
-    "b": "organizations",  # Organisationen
-    "g": "geo",  # Geographika
-    "u": "works",  # Werktiteldaten
-    "f": "events"
-}
 
 
 def getentity(record):
