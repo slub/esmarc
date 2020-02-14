@@ -16,6 +16,7 @@ import argparse
 import json
 import sys
 import requests
+import urllib
 from es2json import esgenerator, isint, eprint
 
 lookup_table_wpSites = {
@@ -116,9 +117,11 @@ def _make_parser():
                 formatter_class=argparse.RawDescriptionHelpFormatter)   # noqa
     inputgroup = p.add_mutually_exclusive_group(required=True)
     inputgroup.add_argument('-server', type=str,                        # noqa
-                   help="use http://host:port/index/type. "
+                   help="use http://host:port/index/type[/id]. "
                         "Defines the Elasticsearch node and its index "
-                        "for the input data")
+                        "for the input data. The last part of the path [id] "
+                        "is optional and can be used for retrieving a single "
+                        "document")
     inputgroup.add_argument('-stdin', action="store_true",              # noqa
                    help="get data from stdin. Might be used with -pipeline.")
     p.add_argument('-pipeline', action="store_true",
@@ -138,14 +141,16 @@ def run():
 
     args = _p.parse_args()
     if args.server:
-        slashsplit = args.server.split("/")
-        args.host = slashsplit[2].rsplit(":")[0]
-        if isint(args.server.split(":")[2].rsplit("/")[0]):
-            args.port = args.server.split(":")[2].split("/")[0]
-        args.index = args.server.split("/")[3]
-        if len(slashsplit) > 4:
-            args.type = slashsplit[4]
-    # embed()
+        srv = urllib.parse.urlparse(args.server)
+        host = srv.hostname
+        port = srv.port
+        splitpath = srv.path.split("/")
+        index = splitpath[1]
+        doc_type = splitpath[2]
+        if len(splitpath) > 3:
+            doc_id = splitpath[3]
+        else:
+            doc_id = None
     if args.stdin:
         iterable = sys.stdin
     else:
@@ -154,8 +159,8 @@ def run():
                 "match": {"sameAs.publisher.abbr.keyword": "WIKIDATA"}
                 }
             }
-        iterable = esgenerator(host=args.host, port=args.port,
-                               index=args.index, type=args.type,
+        iterable = esgenerator(host=host, port=port,
+                               index=index, type=doc_type, id=doc_id,
                                headless=True, body=es_query)
 
     for rec_in in iterable:
