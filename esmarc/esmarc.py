@@ -648,7 +648,8 @@ def handleHasPart(jline, keys, entity):
                     if sset.get("t"):
                         entityType = "works"
                         node["name"] = sset["t"]
-                        node["author"] = sset["a"]
+                        if sset.get("a"):
+                            node["author"] = sset["a"]
                         if entityType == "resources" and sset.get("w") and not sset.get("0"):
                             sset["0"] = sset.get("w")
                         if sset.get("0"):
