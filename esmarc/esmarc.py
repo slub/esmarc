@@ -704,8 +704,8 @@ def get_subfield(jline, key, entity):
               "700": "persons",
               "500": "persons",
               "711": "events",
-              "110": "organizations",
-              "710": "organizations",
+              "110": "swb",
+              "710": "swb",
               "551": "geo",
               "689": "topics",
               "550": "topics",
@@ -727,7 +727,7 @@ def get_subfield(jline, key, entity):
                 if sset.get("t"):  # if this field got an t, then its a Werktiteldaten, we use this field in another function then
                     continue
                 for typ in ["D", "d"]:
-                    if sset.get(typ):  # http://www.dnb.de/SharedDocs/Downloads/DE/DNB/wir/marc21VereinbarungDatentauschTeil1.pdf?__blob=publicationFile Seite 14
+                    if isinstance(sset.get(typ), str):  # http://www.dnb.de/SharedDocs/Downloads/DE/DNB/wir/marc21VereinbarungDatentauschTeil1.pdf?__blob=publicationFile Seite 14
                         node["@type"] = "http://schema.org/"
                         if sset.get(typ) in map_entities and sset.get(typ) in map_types:
                             node["@type"] += map_types.get(sset[typ])
