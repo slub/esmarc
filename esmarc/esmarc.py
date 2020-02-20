@@ -242,8 +242,8 @@ def gnd2uri(string):
                 for st in string:
                     ret.append(gnd2uri(st))
                 return ret
-            elif isinstance(string, str):
-                return uri2url(string.split(')')[0][1:], string.split(')')[1])
+            elif isinstance(string, str):   # added .upper
+                return uri2url(string.split(')')[0][1:], string.split(')')[1].upper())
     except:
         return
 
@@ -507,21 +507,31 @@ def relatedTo(jline, key, entity):
     # e.g. split "551^4:orta" to 551 and orta
     marcfield = key[:3]
     data = []
+    entityType = "persons"
     if marcfield in jline:
         for array in jline[marcfield]:
             for k, v in array.items():
                 sset = {}
+                node = {}
                 for subfield in v:
                     for subfield_code in subfield:
                         sset[subfield_code] = litter(
                             sset.get(subfield_code), subfield[subfield_code])
+                if sset.get("a") and not sset.get("t"):
+                    node["name"] = sset.get("a")
+                elif sset.get("a") and sset.get("t"):
+                    node["name"] = sset.get("t")
+                    node["author"] = sset.get("a")
+                    entityType = "works"
+                elif sset.get("t"):
+                    node["name"] = sset.get("t")
+                    entityType = "works"
                 if isinstance(sset.get("9"), str) and sset.get("9") in marc2relation:
-                    node = {}
-                    node["_key"] = marc2relation[sset["9"]]
+                    node["_key"] = marc2relation[sset["9"]]    
                     if sset.get("0"):
                         uri = gnd2uri(sset.get("0"))
                         if isinstance(uri, str) and uri.startswith(base_id):
-                            node["@id"] = id2uri(sset.get("0"), "persons")
+                            node["@id"] = id2uri(sset.get("0"), entityType)
                         elif isinstance(uri, str) and uri.startswith("http") and not uri.startswith(base_id):
                             node["sameAs"] = uri
                         elif isinstance(uri, str):
@@ -532,18 +542,15 @@ def relatedTo(jline, key, entity):
                             for elem in uri:
                                 if elem and isinstance(elem, str) and elem.startswith(base_id):
                                     node["@id"] = id2uri(
-                                        elem.split("=")[-1], "persons")
+                                        elem.split("=")[-1], entityType)
                                 elif elem and isinstance(elem, str) and elem.startswith("http") and not elem.startswith(base_id):
                                     node["sameAs"] = litter(
                                         node["sameAs"], elem)
                                 else:
                                     node["identifier"] = litter(
                                         node["identifier"], elem)
-                    if sset.get("a"):
-                        node["name"] = sset.get("a")
                     data.append(node)
                 elif isinstance(sset.get("9"), list):
-                    node = {}
                     for elem in sset["9"]:
                         if elem.startswith("v"):
                             for k, v in marc2relation.items():
@@ -560,7 +567,7 @@ def relatedTo(jline, key, entity):
                     if sset.get("0"):
                         uri = gnd2uri(sset.get("0"))
                         if isinstance(uri, str) and uri.startswith(base_id):
-                            node["@id"] = id2uri(sset.get("0"), "persons")
+                            node["@id"] = id2uri(sset.get("0"), entityType)
                         elif isinstance(uri, str) and uri.startswith("http") and not uri.startswith(base_id):
                             node["sameAs"] = uri
                         elif isinstance(uri, str):
@@ -571,17 +578,14 @@ def relatedTo(jline, key, entity):
                             for elem in uri:
                                 if elem and elem.startswith(base_id):
                                     node["@id"] = id2uri(
-                                        elem.split("=")[-1], "persons")
+                                        elem.split("=")[-1], entityType)
                                 elif elem and elem.startswith("http") and not elem.startswith(base_id):
                                     node["sameAs"] = litter(
                                         node["sameAs"], elem)
                                 elif elem:
                                     node["identifier"] = litter(
                                         node["identifier"], elem)
-                    if sset.get("a"):
-                        node["name"] = sset.get("a")
                     data.append(node)
-                    # eprint(node)
 
         if data:
             return ArrayOrSingleValue(data)
@@ -712,7 +716,7 @@ def get_subfield(jline, key, entity):
               "550": "topics",
               "551": "geo",
               "655": "topics",
-              "830": "resources",
+              "830": "resources"
               }
     entityType = keymap.get(key)
     data = []
@@ -1328,7 +1332,7 @@ entities = {
         "single:issueNumber": {getmarc: "773..l"},
         "single:volumeNumer": {getmarc: "773..v"},
         "single:locationCreated": {get_subfield_if_4: "551^orth"},
-        "single:relatedTo": {relatedTo: "500..0"}
+        "multi:relatedTo": {relatedTo: "500"}
     },
     "persons": {
         "single:@type": [URIRef(u'http://schema.org/Person')],
