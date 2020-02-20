@@ -42,6 +42,7 @@ setup(name='esmarc',
           "console_scripts": [
               "esmarc=esmarc.esmarc:main",
               "wikidata.py=enrichment.wikidata:run",
+              "wikipedia.py=enrichment.wikipedia:run",
               "entityfacts.py=enrichment.entityfacts:run",
               "geonames.py=enrichment.geonames:run",
               "gnd_sachgruppen.py=enrichment.gnd_sachgruppen:run",
