@@ -797,6 +797,8 @@ def getsameAs(jline, keys, entity):
     sameAs = []
     for key in keys:
         data = getmarc(jline, key, entity)
+        if isinstance(data, str):
+            data = [data]
         if isinstance(data, list):
             for elem in data:
                 if not "DE-576" in elem:  # ignore old SWB id for root SameAs
