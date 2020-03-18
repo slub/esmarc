@@ -81,8 +81,15 @@ def get_wptitle(record):
                .format(status=wd_response.status_code,
                        message=wd_response.content)
                )
+        return None
+
     # related wikipedia links:
-    sites = wd_response.json()["entities"][wd_id]["sitelinks"]
+    try:
+        sites = wd_response.json()["entities"][wd_id]["sitelinks"]
+    except KeyError:
+        eprint("wikipedia: Data Error for Record:\n\'{record}\'\n\'{wp_record}\'"
+               .format(record=record,wp_record=wd_response.content))
+        return None
 
     # list of all abbreviations for publisher in record's sameAs
     abbrevs = list(x["publisher"]["abbr"] for x in record["sameAs"])
