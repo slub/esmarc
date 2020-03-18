@@ -1,39 +1,57 @@
 #!/usr/bin/env python3
+""" Tool, to enrich elasticsearch data with existing wikipedia sites connected
+    to a record by an (already existing) wikidata-ID
 
+    Currently sites from the german, english, polish, and czech wikipedia are
+    enrichted.
+
+    Input:
+        elasticsearch index OR
+        STDIN (as jsonl)
+
+    Output:
+        on STDOUT
+"""
 import argparse
 import json
 import sys
 import requests
-from es2json import esgenerator, isint, litter, eprint
+import urllib
+from es2json import esgenerator, isint, eprint
 
-
-lookup_table_wpSites = {"cswiki": {
-                                    "@id": "https://cs.wikipedia.org",
-                                    "preferredName": "Wikipedia (Tschechisch)",
-                                    "abbr": "cswiki"
-                                    },
-                        "dewiki": {
-                                    "abbr": "dewiki",
-                                    "preferredName": "Wikipedia (Deutsch)",
-                                    "@id": "http://de.wikipedia.org"
-                                    },
-                        "plwiki": {
-                                    "abbr": "plwiki",
-                                    "preferredName": "Wikipedia (Polnisch)",
-                                    "@id": "http://pl.wikipedia.org"
-                                    },
-                        "enwiki": {
-                                    "abbr": "enwiki",
-                                    "preferredName": "Wikipedia (Englisch)",
-                                    "@id": "http://en.wikipedia.org"
-                                    },
-                        }
+lookup_table_wpSites = {
+        "cswiki": {
+                    "@id": "https://cs.wikipedia.org",
+                    "preferredName": "Wikipedia (Tschechisch)",
+                    "abbr": "cswiki"
+                    },
+        "dewiki": {
+                    "abbr": "dewiki",
+                    "preferredName": "Wikipedia (Deutsch)",
+                    "@id": "http://de.wikipedia.org"
+                    },
+        "plwiki": {
+                    "abbr": "plwiki",
+                    "preferredName": "Wikipedia (Polnisch)",
+                    "@id": "http://pl.wikipedia.org"
+                    },
+        "enwiki": {
+                    "abbr": "enwiki",
+                    "preferredName": "Wikipedia (Englisch)",
+                    "@id": "http://en.wikipedia.org"
+                    },
+        }
 
 
 def get_wptitle(record):
     """
-    gets an list of sameAs Links which must contain an wikidata-item,
-    adds the german, english, polish and czech wikipedia sites
+    * iterates through all sameAs Links to extract a wikidata-ID
+    * requests wikipedia sites connected to the wd-Id
+    * enriches wikipedia sites if they are within lookup_table_wpSites
+      (i.e. currently german, english, polish, czech)
+
+    returns: None (if record has not been changed)
+             enriched record (dict, if record has changed)
     """
     wd_uri = None
     wd_id = None
@@ -44,80 +62,117 @@ def get_wptitle(record):
             break
     if not wd_id:
         return None
-    
+
     headers = {
             'User-Agent': 'efre-lod-enrich-wikipedia-bot/0.1 '
                           '(https://github.com/slub/esmarc) '
                           'python-requests/2.22'
             }
-    
-    wd_response = requests.get("https://www.wikidata.org/w/api.php",headers=headers, params={'action':'wbgetentities', 'ids': wd_id, 'props': 'sitelinks', 'format': 'json'})
+
+    wd_response = requests.get("https://www.wikidata.org/w/api.php",
+                               headers=headers,
+                               params={'action': 'wbgetentities',
+                                       'ids': wd_id,
+                                       'props': 'sitelinks',
+                                       'format': 'json'})
+
     if not wd_response.ok:
         eprint("wikipedia: Connection Error {status}: \'{message}\'"
-               .format(status=wd_response.status_code, wd_response=data.content)
+               .format(status=wd_response.status_code,
+                       message=wd_response.content)
                )
-    sites = wd_response.json()["entities"][wd_id]["sitelinks"]
+        return None
+
+    # related wikipedia links:
+    try:
+        sites = wd_response.json()["entities"][wd_id]["sitelinks"]
+    except KeyError:
+        eprint("wikipedia: Data Error for Record:\n\'{record}\'\n\'{wp_record}\'"
+               .format(record=record,wp_record=wd_response.content))
+        return None
+
+    # list of all abbreviations for publisher in record's sameAs
     abbrevs = list(x["publisher"]["abbr"] for x in record["sameAs"])
+
     changed = False
-    for site, info in sites.items():
-        if site in lookup_table_wpSites:
-            newSameAs = {"@id": lookup_table_wpSites[site]["@id"]+"/wiki/{title}".format(title=info["title"]),
-                         "publisher": lookup_table_wpSites[site],
+    for wpAbbr, info in sites.items():
+        if wpAbbr in lookup_table_wpSites:
+            wikip_url = lookup_table_wpSites[wpAbbr]["@id"] + "/wiki/{title}"\
+                        .format(title=info["title"])
+            newSameAs = {"@id": wikip_url,
+                         "publisher": lookup_table_wpSites[wpAbbr],
                          "isBasedOn": {
                              "@type": "Dataset",
                              "@id": wd_uri
                              }
                          }
-            if site not in abbrevs:
+            if wpAbbr not in abbrevs:
                 record["sameAs"].append(newSameAs)
                 changed = True
     if changed:
         return record
 
 
-def run():
-    parser = argparse.ArgumentParser(description='enrich ES by WP!')
-    parser.add_argument('-host', type=str, default="127.0.0.1",
-                        help='hostname or IP-Address of the ElasticSearch-node to use, default is localhost.')
-    parser.add_argument('-port', type=int, default=9200,
-                        help='Port of the ElasticSearch-node to use, default is 9200.')
-    parser.add_argument('-index', type=str,
-                        help='ElasticSearch Search Index to use')
-    parser.add_argument('-type', type=str,
-                        help='ElasticSearch Search Index Type to use')
-    parser.add_argument(
-        "-id", type=str, help="retrieve single document (optional)")
-    parser.add_argument('-stdin', action="store_true",
-                        help="get data from stdin")
-    parser.add_argument('-pipeline', action="store_true",
-                        help="output every record (even if not enriched) to put this script into a pipeline")
-    # no, i don't steal the syntax from esbulk...
-    parser.add_argument(
-        '-server', type=str, help="use http://host:port/index/type/id?pretty. overwrites host/port/index/id/pretty")
-    args = parser.parse_args()
-    if args.server:
-        slashsplit = args.server.split("/")
-        args.host = slashsplit[2].rsplit(":")[0]
-        if isint(args.server.split(":")[2].rsplit("/")[0]):
-            args.port = args.server.split(":")[2].split("/")[0]
-        args.index = args.server.split("/")[3]
-        if len(slashsplit) > 4:
-            args.type = slashsplit[4]
-        if len(slashsplit) > 5 and "?pretty" in args.server:
-            args.pretty = True
-            args.id = slashsplit[5].rsplit("?")[0]
-        elif len(slashsplit) > 5:
-                args.id = slashsplit[5]
+def _make_parser():
+    """ Generates argument parser with all necessarry parameters.
+    :returns script's arguments (host, port, index, type, id,
+             searchserver, server, stdin, pipeline)
+    :rtype   argparse.ArgumentParser
+    """
 
+    p = argparse.ArgumentParser(description=__doc__,
+                formatter_class=argparse.RawDescriptionHelpFormatter)   # noqa
+    inputgroup = p.add_mutually_exclusive_group(required=True)
+    inputgroup.add_argument('-server', type=str,                        # noqa
+                   help="use http://host:port/index/type[/id]. "
+                        "Defines the Elasticsearch node and its index "
+                        "for the input data. The last part of the path [id] "
+                        "is optional and can be used for retrieving a single "
+                        "document")
+    inputgroup.add_argument('-stdin', action="store_true",              # noqa
+                   help="get data from stdin. Might be used with -pipeline.")
+    p.add_argument('-pipeline', action="store_true",
+                   help="output every record (even if not enriched) "
+                        "to put this script into a pipeline")
+    return p
+
+
+_p = _make_parser()
+
+# extend docstring by argparse's help output
+# → needed for the documentation to show command line parameters
+__doc__ = _p.format_help()
+
+
+def run():
+
+    args = _p.parse_args()
+    if args.server:
+        srv = urllib.parse.urlparse(args.server)
+        host = srv.hostname
+        port = srv.port
+        splitpath = srv.path.split("/")
+        index = splitpath[1]
+        doc_type = splitpath[2]
+        if len(splitpath) > 3:
+            doc_id = splitpath[3]
+        else:
+            doc_id = None
     if args.stdin:
         iterable = sys.stdin
     else:
-        es_query = {"query": {"match": {"sameAs.publisher.abbr.keyword": "WIKIDATA"}}}
-        iterable = esgenerator(host=args.host, port=args.port, index=args.index, type=args.type, id=args.id, headless=True, body=es_query)
+        es_query = {
+            "query": {
+                "match": {"sameAs.publisher.abbr.keyword": "WIKIDATA"}
+                }
+            }
+        iterable = esgenerator(host=host, port=port,
+                               index=index, type=doc_type, id=doc_id,
+                               headless=True, body=es_query)
 
     for rec_in in iterable:
         if args.stdin:
-            rec_in=json.loads(rec_in)
+            rec_in = json.loads(rec_in)
 
         rec_out = get_wptitle(rec_in)
 
