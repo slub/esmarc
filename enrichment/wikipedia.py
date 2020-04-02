@@ -115,7 +115,7 @@ def get_wptitle(record):
             if cc not in record["name"]:
                 record["name"][cc] = [info["title"]]
                 changed = True
-            else:
+            if info["title"] not in record["name"][cc]:
                 record["name"][cc] = litter(record["name"][cc], info["title"])
                 changed = True
     if changed:
