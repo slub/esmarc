@@ -17,7 +17,7 @@ import json
 import sys
 import requests
 import urllib
-from es2json import esgenerator, isint, eprint
+from es2json import esgenerator, isint, eprint, litter
 
 lookup_table_wpSites = {
         "cswiki": {
@@ -108,6 +108,15 @@ def get_wptitle(record):
                          }
             if wpAbbr not in abbrevs:
                 record["sameAs"].append(newSameAs)
+                changed = True
+            if not record.get("name"):
+                record["name"] = {}
+            cc = wpAbbr[:2]  # countrycode
+            if cc not in record["name"]:
+                record["name"][cc] = [info["title"]]
+                changed = True
+            else:
+                record["name"][cc] = litter(record["name"][cc], info["title"])
                 changed = True
     if changed:
         return record
