@@ -28,17 +28,17 @@ lookup_table_wpSites = {
         "dewiki": {
                     "abbr": "dewiki",
                     "preferredName": "Wikipedia (Deutsch)",
-                    "@id": "http://de.wikipedia.org"
+                    "@id": "https://de.wikipedia.org"
                     },
         "plwiki": {
                     "abbr": "plwiki",
                     "preferredName": "Wikipedia (Polnisch)",
-                    "@id": "http://pl.wikipedia.org"
+                    "@id": "https://pl.wikipedia.org"
                     },
         "enwiki": {
                     "abbr": "enwiki",
                     "preferredName": "Wikipedia (Englisch)",
-                    "@id": "http://en.wikipedia.org"
+                    "@id": "https://en.wikipedia.org"
                     },
         }
 
