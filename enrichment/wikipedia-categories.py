@@ -55,11 +55,12 @@ def get_wptitle(record):
     wp_uri = None
     wp_title = None
     cc = None  # countrycode
+    changed = False
     retobj = {}
     for _id in [x["@id"] for x in record["sameAs"]]:
         if "wikipedia" in _id:
             wp_uri = _id
-            wp_title = wp_uri.split("/")[-1]
+            wp_title = urllib.parse.unquote(wp_uri.split("/")[-1])
             cc = wp_uri.split("/")[2].split(".")[0]
 
 
