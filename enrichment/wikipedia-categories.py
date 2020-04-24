@@ -92,7 +92,7 @@ def get_wptitle(record):
                     _sameAs = _base + page_data["title"]
                     _id = _base + "?curid={}".format(page_id)
                     _name = page_data["title"].split(":")[1]
-                    obj = {"id": _id, "sameAs": _sameAs, "name": _name}
+                    obj = {"@id": _id, "sameAs": _sameAs, "name": _name}
                     retobj[cc] = litter(retobj.get(cc),obj)
                     changed = True
             except KeyError:
@@ -129,7 +129,7 @@ def get_wptitle(record):
                 #record["name"][cc] = litter(record["name"][cc], info["title"])
                 #changed = True
     if changed:
-        record["wp_categories"] = retobj
+        record["category"] = retobj
         return record
     return None
 
