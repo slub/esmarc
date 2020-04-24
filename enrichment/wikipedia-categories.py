@@ -73,12 +73,11 @@ def get_wptitle(record):
             wd_response = requests.get(url,
                                        headers=headers,
                                        params={'action': 'query',
-                                               'cllimit': 500,
-                                               'clshow': '!hidden',
+                                               'generator': 'categories',
                                                'titles': wp_title,
-                                               'prop': 'categories',
+                                               'gcllimit': 500,
+                                               'prop': 'info',
                                                'format': 'json'})
-
             if not wd_response.ok:
                 eprint("wikipedia: Connection Error {status}: \'{message}\'"
                         .format(status=wd_response.status_code,
@@ -90,12 +89,12 @@ def get_wptitle(record):
             try:
                 pages = wd_response.json()["query"]["pages"]
                 for page_id, page_data in pages.items():
-                    for category in page_data["categories"]:
-                        _id = _base + "{}".format(category["title"])
-                        _name = category["title"].split(":")[1]
-                        obj = {"id": _id, "name": _name}
-                        retobj[cc] = litter(retobj.get(cc),obj)
-                        changed = True
+                    _sameAs = _base + "?curid={}".format(page_data["title"])
+                    _id = _base + page_id
+                    _name = page_data["title"].split(":")[1]
+                    obj = {"id": _id, "sameAs": _sameAs, "name": _name}
+                    retobj[cc] = litter(retobj.get(cc),obj)
+                    changed = True
             except KeyError:
                 eprint("wikipedia: Data Error for Record:")
                 eprint("{record}\'\n\'{wp_record}\'".format(record=record,
