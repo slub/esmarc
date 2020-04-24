@@ -22,26 +22,43 @@ from es2json import esgenerator, isint, eprint, litter
 lookup_table_wpSites = {
         "cswiki": {
                     "@id": "https://cs.wikipedia.org",
-                    "preferredName": "Wikipedia (Tschechisch)",
-                    "abbr": "cswiki"
+                    "preferredName": "Wikipedia (Tschechisch)"
                     },
         "dewiki": {
                     "abbr": "dewiki",
-                    "preferredName": "Wikipedia (Deutsch)",
-                    "@id": "https://de.wikipedia.org"
+                    "preferredName": "Wikipedia (Deutsch)"
                     },
         "plwiki": {
                     "abbr": "plwiki",
-                    "preferredName": "Wikipedia (Polnisch)",
-                    "@id": "https://pl.wikipedia.org"
+                    "preferredName": "Wikipedia (Polnisch)"
                     },
         "enwiki": {
                     "abbr": "enwiki",
-                    "preferredName": "Wikipedia (Englisch)",
-                    "@id": "https://en.wikipedia.org"
+                    "preferredName": "Wikipedia (Englisch)"
                     },
         }
 
+
+def build_abbrevs(sameAsses):
+    """
+    builds a little helper dictionary with the abbreviations
+    of the current record, so we can check from which publisher
+    each abbreviation is originating, along with the position
+    in the records sameAs array, of course this helper dicitionary
+    needs to get updated each time the sameAs array of the record
+    gets changed, because the position value of the abbreviations
+    get changed. position value is needed for deletions, because we
+    want to delete entityfacts wikipedia entries when we get the
+    wikipedia entries by wikidata
+    """
+    abbrevs = {}
+    for n, sameAs in enumerate(sameAsses):
+        abbr_url = urllib.parse.urlparse(sameAs["isBasedOn"]["@id"])
+        abbr_host = abbr_url.hostname
+        abbrevs[sameAs["publisher"]["abbr"]] = {}
+        abbrevs[sameAs["publisher"]["abbr"]]["host"] = abbr_host
+        abbrevs[sameAs["publisher"]["abbr"]]["pos"] = n
+    return abbrevs
 
 def get_wptitle(record):
     """
@@ -55,6 +72,7 @@ def get_wptitle(record):
     """
     wd_uri = None
     wd_id = None
+    ef_url = 'hub.culturegraph.org'
     for _id in [x["@id"] for x in record["sameAs"]]:
         if "wikidata" in _id:
             wd_uri = _id
@@ -68,13 +86,14 @@ def get_wptitle(record):
                           '(https://github.com/slub/esmarc) '
                           'python-requests/2.22'
             }
-
+    site_filter_param = '|'.join([x for x in lookup_table_wpSites])
     wd_response = requests.get("https://www.wikidata.org/w/api.php",
                                headers=headers,
                                params={'action': 'wbgetentities',
                                        'ids': wd_id,
-                                       'props': 'sitelinks',
-                                       'format': 'json'})
+                                       'props': 'sitelinks/urls',
+                                       'format': 'json',
+                                       'sitefilter': site_filter_param})
 
     if not wd_response.ok:
         eprint("wikipedia: Connection Error {status}: \'{message}\'"
@@ -92,13 +111,11 @@ def get_wptitle(record):
         return None
 
     # list of all abbreviations for publisher in record's sameAs
-    abbrevs = list(x["publisher"]["abbr"] for x in record["sameAs"])
-
+    abbrevs = build_abbrevs(record["sameAs"])
     changed = False
     for wpAbbr, info in sites.items():
         if wpAbbr in lookup_table_wpSites:
-            wikip_url = lookup_table_wpSites[wpAbbr]["@id"] + "/wiki/{title}"\
-                        .format(title=info["title"])
+            wikip_url = info["url"]
             newSameAs = {"@id": wikip_url,
                          "publisher": lookup_table_wpSites[wpAbbr],
                          "isBasedOn": {
@@ -108,6 +125,17 @@ def get_wptitle(record):
                          }
             if wpAbbr not in abbrevs:
                 record["sameAs"].append(newSameAs)
+                changed = True
+                abbrevs = build_abbrevs(record["sameAs"])
+            elif abbrevs.get(wpAbbr) and abbrevs[wpAbbr]["host"] == ef_url:
+                """
+                if we get an actual wikipedia link from wikidata, but we
+                already got an entry from entityfacts, we delete the
+                entityfacts entry and append the wikidata entry
+                """
+                del record["sameAs"][abbrevs[wpAbbr]["pos"]]
+                record["sameAs"].append(newSameAs)
+                abbrevs = build_abbrevs(record["sameAs"])
                 changed = True
             if not record.get("name"):
                 record["name"] = {}
