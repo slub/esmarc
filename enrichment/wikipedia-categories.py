@@ -89,8 +89,8 @@ def get_wptitle(record):
             try:
                 pages = wd_response.json()["query"]["pages"]
                 for page_id, page_data in pages.items():
-                    _sameAs = _base + "?curid={}".format(page_data["title"])
-                    _id = _base + page_id
+                    _sameAs = _base + page_data["title"]
+                    _id = _base + "?curid={}".format(page_id)
                     _name = page_data["title"].split(":")[1]
                     obj = {"id": _id, "sameAs": _sameAs, "name": _name}
                     retobj[cc] = litter(retobj.get(cc),obj)
