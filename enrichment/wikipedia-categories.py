@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-""" Tool, to enrich elasticsearch data with existing wikipedia attributes
-    connected to a record by an (already existing) wikidata-ID
+"""
+Tool, to enrich elasticsearch data with existing wikipedia attributes
+connected to a record by an (already existing) wikidata-ID
+Currently sites from the german, english, polish, and czech wikipedia are
+enrichted.
 
-    Currently sites from the german, english, polish, and czech wikipedia are
-    enrichted.
+Input:
+    elasticsearch index OR
+    STDIN (as jsonl)
 
-    Input:
-        elasticsearch index OR
-        STDIN (as jsonl)
-
-    Output:
-        on STDOUT
+Output:
+    on STDOUT
 """
 import argparse
 import json
 import sys
 import requests
 import urllib
-from es2json import esgenerator, isint, eprint, litter
+from es2json import esgenerator, eprint, litter
 
 lookup_table_wpSites = {
         "cswiki": {
-                    "@id": "https://cs.wikipedia.org",
+                    "abbr": "cswiki",
                     "preferredName": "Wikipedia (Tschechisch)",
-                    "abbr": "cswiki"
+                    "@id": "https://cs.wikipedia.org"
                     },
         "dewiki": {
                     "abbr": "dewiki",
@@ -45,12 +45,12 @@ lookup_table_wpSites = {
 
 def get_wptitle(record):
     """
-    * iterates through all sameAs Links to extract a wikipedia-link
-    * enriches wikipedia sites if they are within lookup_table_wpSites
-      (i.e. currently german, english, polish, czech)
-
-    returns: None (if record has not been changed)
+    iterates through all sameAs Links to extract a wikipedia-link
+    enriches wikipedia sites if they are within lookup_table_wpSites
+    (i.e. currently german, english, polish, czech)
+    :returns None (if record has not been changed)
              enriched record (dict, if record has changed)
+    :rtype dict
     """
     wp_uri = None
     wp_title = None
@@ -63,11 +63,10 @@ def get_wptitle(record):
             wp_title = urllib.parse.unquote(wp_uri.split("/")[-1])
             cc = wp_uri.split("/")[2].split(".")[0]
 
-
             headers = {
                     'User-Agent': 'lod-enrich-wikipedia-attributes-bot/0.1'
-                                   '(https://github.com/slub/esmarc) '
-                                   'python-requests/2.22'
+                                  '(https://github.com/slub/esmarc) '
+                                  'python-requests/2.22'
                     }
             url = "https://{}.wikipedia.org/w/api.php".format(cc)
             wd_response = requests.get(url,
@@ -80,11 +79,10 @@ def get_wptitle(record):
                                                'format': 'json'})
             if not wd_response.ok:
                 eprint("wikipedia: Connection Error {status}: \'{message}\'"
-                        .format(status=wd_response.status_code,
-                                message=wd_response.content)
-                        )
+                       .format(status=wd_response.status_code,
+                               message=wd_response.content))
                 return None
-            ## related wikipedia links:
+            # related wikipedia links:
             _base = "https://{}.wikipedia.org/wiki/".format(cc)
             try:
                 pages = wd_response.json()["query"]["pages"]
@@ -93,48 +91,22 @@ def get_wptitle(record):
                     _id = _base + "?curid={}".format(page_id)
                     _name = page_data["title"].split(":")[1]
                     obj = {"@id": _id, "sameAs": _sameAs, "name": _name}
-                    retobj[cc] = litter(retobj.get(cc),obj)
+                    retobj[cc] = litter(retobj.get(cc), obj)
                     changed = True
             except KeyError:
                 eprint("wikipedia: Data Error for Record:")
                 eprint("{record}\'\n\'{wp_record}\'".format(record=record,
-                                            wp_record=wd_response.content))
+                       wp_record=wd_response.content))
                 return None
-            
-    ## list of all abbreviations for publisher in record's sameAs
-    #abbrevs = list(x["publisher"]["abbr"] for x in record["sameAs"])
-
-    #changed = False
-    #for wpAbbr, info in sites.items():
-        #if wpAbbr in lookup_table_wpSites:
-            #wikip_url = lookup_table_wpSites[wpAbbr]["@id"] + "/wiki/{title}"\
-                        #.format(title=info["title"])
-            #newSameAs = {"@id": wikip_url,
-                         #"publisher": lookup_table_wpSites[wpAbbr],
-                         #"isBasedOn": {
-                             #"@type": "Dataset",
-                             #"@id": wp_uri
-                             #}
-                         #}
-            #if wpAbbr not in abbrevs:
-                #record["sameAs"].append(newSameAs)
-                #changed = True
-            #if not record.get("name"):
-                #record["name"] = {}
-            #cc = wpAbbr[:2]  # countrycode
-            #if cc not in record["name"]:
-                #record["name"][cc] = [info["title"]]
-                #changed = True
-            #if info["title"] not in record["name"][cc]:
-                #record["name"][cc] = litter(record["name"][cc], info["title"])
-                #changed = True
     if changed:
         record["category"] = retobj
         return record
     return None
 
+
 def _make_parser():
-    """ Generates argument parser with all necessarry parameters.
+    """
+    Generates argument parser with all necessarry parameters.
     :returns script's arguments (host, port, index, type, id,
              searchserver, server, stdin, pipeline)
     :rtype   argparse.ArgumentParser
@@ -165,7 +137,6 @@ __doc__ = _p.format_help()
 
 
 def run():
-
     args = _p.parse_args()
     if args.server:
         srv = urllib.parse.urlparse(args.server)
