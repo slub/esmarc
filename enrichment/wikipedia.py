@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-""" Tool, to enrich elasticsearch data with existing wikipedia sites connected
-    to a record by an (already existing) wikidata-ID
+"""
+Tool, to enrich elasticsearch data with existing wikipedia sites connected
+to a record by an (already existing) wikidata-ID
 
-    Currently sites from the german, english, polish, and czech wikipedia are
-    enrichted.
+Currently sites from the de, en, pl, and cz wikipedia are enrichted.
 
-    Input:
-        elasticsearch index OR
-        STDIN (as jsonl)
+Input:
+    elasticsearch index OR
+    STDIN (as jsonl)
 
-    Output:
-        on STDOUT
+Output:
+    on STDOUT
 """
 import argparse
 import json
 import sys
 import requests
 import urllib
-from es2json import esgenerator, isint, eprint, litter
+from es2json import esgenerator, eprint, litter
 
 lookup_table_wpSites = {
         "cswiki": {
-                    "@id": "https://cs.wikipedia.org",
+                    "abbr": "cswiki",
                     "preferredName": "Wikipedia (Tschechisch)"
                     },
         "dewiki": {
@@ -50,6 +50,8 @@ def build_abbrevs(sameAsses):
     get changed. position value is needed for deletions, because we
     want to delete entityfacts wikipedia entries when we get the
     wikipedia entries by wikidata
+    :returns helper dictionary
+    :rtype dict
     """
     abbrevs = {}
     for n, sameAs in enumerate(sameAsses):
@@ -60,6 +62,7 @@ def build_abbrevs(sameAsses):
         abbrevs[sameAs["publisher"]["abbr"]]["pos"] = n
     return abbrevs
 
+
 def get_wptitle(record):
     """
     * iterates through all sameAs Links to extract a wikidata-ID
@@ -67,8 +70,9 @@ def get_wptitle(record):
     * enriches wikipedia sites if they are within lookup_table_wpSites
       (i.e. currently german, english, polish, czech)
 
-    returns: None (if record has not been changed)
+    :returns None (if record has not been changed)
              enriched record (dict, if record has changed)
+    :rtype dict
     """
     wd_uri = None
     wd_id = None
@@ -106,8 +110,9 @@ def get_wptitle(record):
     try:
         sites = wd_response.json()["entities"][wd_id]["sitelinks"]
     except KeyError:
-        eprint("wikipedia: Data Error for Record:\n\'{record}\'\n\'{wp_record}\'"
-               .format(record=record,wp_record=wd_response.content))
+        eprint("wikipedia: Data Error for Record:")
+        eprint("\'{record}\'\n\'{wp_record}\'"
+               .format(record=record, wp_record=wd_response.content))
         return None
 
     # list of all abbreviations for publisher in record's sameAs
@@ -115,7 +120,7 @@ def get_wptitle(record):
     changed = False
     for wpAbbr, info in sites.items():
         if wpAbbr in lookup_table_wpSites:
-            wikip_url = info["url"]
+            wikip_url = info["url"].replace(' ', '_')
             newSameAs = {"@id": wikip_url,
                          "publisher": lookup_table_wpSites[wpAbbr],
                          "isBasedOn": {
