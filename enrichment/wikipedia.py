@@ -63,7 +63,7 @@ def build_abbrevs(sameAsses):
     return abbrevs
 
 
-def get_wptitle(record):
+def get_wpinfo(record):
     """
     * iterates through all sameAs Links to extract a wikidata-ID
     * requests wikipedia sites connected to the wd-Id
@@ -72,6 +72,7 @@ def get_wptitle(record):
     * if we get an new wikipedia link from wikidata, but we
       already got an old entry from other as obsolete defined sources,
       we delete the obsolete entry and append the new entry
+    * enriches multilingual names if they are within lookup_table_wpSites
 
     :returns None (if record has not been changed)
              enriched record (dict, if record has changed)
@@ -145,7 +146,7 @@ def get_wptitle(record):
                 abbrevs = build_abbrevs(record["sameAs"])
                 changed = True
 
-            # name object enrichment
+            # multilingual name object enrichment
             if not record.get("name"):
                 record["name"] = {}
             cc = wpAbbr[:2]  # countrycode
@@ -220,7 +221,7 @@ def run():
         if args.stdin:
             rec_in = json.loads(rec_in)
 
-        rec_out = get_wptitle(rec_in)
+        rec_out = get_wpinfo(rec_in)
 
         if rec_out:
             print(json.dumps(rec_out, indent=None))

@@ -18,7 +18,7 @@ import urllib
 from es2json import esgenerator, eprint, litter
 
 
-def get_wptitle(record):
+def get_wpcategories(record):
     """
     * iterates through all sameAs Links to extract the
       link(s) to the wiki-site
@@ -140,7 +140,7 @@ def run():
         if args.stdin:
             rec_in = json.loads(rec_in)
 
-        rec_out = get_wptitle(rec_in)
+        rec_out = get_wpcategories(rec_in)
 
         if rec_out:
             print(json.dumps(rec_out, indent=None))
