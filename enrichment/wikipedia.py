@@ -47,15 +47,11 @@ lookup_table_wpSites = {
 
 def build_abbrevs(sameAsses):
     """
-    builds a little helper dictionary with the abbreviations
-    of the current record, so we can check from which publisher
-    each abbreviation is originating, along with the position
-    in the records sameAs array, of course this helper dicitionary
-    needs to get updated each time the sameAs array of the record
-    gets changed, because the position value of the abbreviations
-    get changed. position value is needed for deletions, because we
-    want to delete entityfacts wikipedia entries when we get the
-    wikipedia entries by wikidata
+    builds a little helper dictionary with the sameAs abbreviations of the
+    current record, so we can check from which publisher each sameAs is
+    originating, along with the position in the records sameAs array.
+    position value is needed to update obsolete wikipedia entries based on the
+    isBasedOn provenance list
     :returns helper dictionary
     :rtype dict
     """
@@ -86,7 +82,6 @@ def get_wpinfo(record):
     """
     wd_uri = None
     wd_id = None
-
 
     for _id in [x["@id"] for x in record["sameAs"]]:
         if "wikidata" in _id:
@@ -143,11 +138,11 @@ def get_wpinfo(record):
             if wpAbbr not in abbrevs:
                 record["sameAs"].append(newSameAs)
                 changed = True
-                abbrevs = build_abbrevs(record["sameAs"])
+
+            # we already got an wikipedia link for that language, but the
+            # originating data source is obsolete, so we update
             elif abbrevs.get(wpAbbr) and abbrevs[wpAbbr]["host"] in obsolete_isBasedOns:
-                del record["sameAs"][abbrevs[wpAbbr]["pos"]]
-                record["sameAs"].append(newSameAs)
-                abbrevs = build_abbrevs(record["sameAs"])
+                record["sameAs"][abbrevs[wpAbbr]["pos"]] = newSameAs
                 changed = True
 
             # multilingual name object enrichment
