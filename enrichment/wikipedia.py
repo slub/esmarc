@@ -69,6 +69,9 @@ def get_wptitle(record):
     * requests wikipedia sites connected to the wd-Id
     * enriches wikipedia sites if they are within lookup_table_wpSites
       (i.e. currently german, english, polish, czech)
+    * if we get an new wikipedia link from wikidata, but we
+      already got an old entry from other as obsolete defined sources,
+      we delete the obsolete entry and append the new entry
 
     :returns None (if record has not been changed)
              enriched record (dict, if record has changed)
@@ -76,7 +79,10 @@ def get_wptitle(record):
     """
     wd_uri = None
     wd_id = None
-    ef_url = 'hub.culturegraph.org'
+
+    # list of data source which should be updated if we get a new wikipedia-link
+    obsolete_isBasedOns = ['hub.culturegraph.org']
+
     for _id in [x["@id"] for x in record["sameAs"]]:
         if "wikidata" in _id:
             wd_uri = _id
@@ -120,7 +126,7 @@ def get_wptitle(record):
     changed = False
     for wpAbbr, info in sites.items():
         if wpAbbr in lookup_table_wpSites:
-            wikip_url = info["url"].replace(' ', '_')
+            wikip_url = info["url"]
             newSameAs = {"@id": wikip_url,
                          "publisher": lookup_table_wpSites[wpAbbr],
                          "isBasedOn": {
@@ -128,20 +134,18 @@ def get_wptitle(record):
                              "@id": wd_uri
                              }
                          }
+            # wikipedia sameAs link enrichment
             if wpAbbr not in abbrevs:
                 record["sameAs"].append(newSameAs)
                 changed = True
                 abbrevs = build_abbrevs(record["sameAs"])
-            elif abbrevs.get(wpAbbr) and abbrevs[wpAbbr]["host"] == ef_url:
-                """
-                if we get an actual wikipedia link from wikidata, but we
-                already got an entry from entityfacts, we delete the
-                entityfacts entry and append the wikidata entry
-                """
+            elif abbrevs.get(wpAbbr) and abbrevs[wpAbbr]["host"] in obsolete_isBasedOns:
                 del record["sameAs"][abbrevs[wpAbbr]["pos"]]
                 record["sameAs"].append(newSameAs)
                 abbrevs = build_abbrevs(record["sameAs"])
                 changed = True
+
+            # name object enrichment
             if not record.get("name"):
                 record["name"] = {}
             cc = wpAbbr[:2]  # countrycode

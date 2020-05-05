@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-Tool, to enrich elasticsearch data with existing wikipedia attributes
-connected to a record by an (already existing) wikidata-ID
-Currently sites from the german, english, polish, and czech wikipedia are
-enrichted.
+Tool, to enrich an elasticsearch or json data with existing wikipedia
+attributes connected to a record by (already existing) wikipedia-links.
 
 Input:
     elasticsearch index OR
@@ -19,35 +17,12 @@ import requests
 import urllib
 from es2json import esgenerator, eprint, litter
 
-lookup_table_wpSites = {
-        "cswiki": {
-                    "abbr": "cswiki",
-                    "preferredName": "Wikipedia (Tschechisch)",
-                    "@id": "https://cs.wikipedia.org"
-                    },
-        "dewiki": {
-                    "abbr": "dewiki",
-                    "preferredName": "Wikipedia (Deutsch)",
-                    "@id": "https://de.wikipedia.org"
-                    },
-        "plwiki": {
-                    "abbr": "plwiki",
-                    "preferredName": "Wikipedia (Polnisch)",
-                    "@id": "https://pl.wikipedia.org"
-                    },
-        "enwiki": {
-                    "abbr": "enwiki",
-                    "preferredName": "Wikipedia (Englisch)",
-                    "@id": "https://en.wikipedia.org"
-                    },
-        }
-
 
 def get_wptitle(record):
     """
-    iterates through all sameAs Links to extract a wikipedia-link
-    enriches wikipedia sites if they are within lookup_table_wpSites
-    (i.e. currently german, english, polish, czech)
+    * iterates through all sameAs Links to extract the
+      link(s) to the wiki-site
+    * requests wikpedia categories linked to those links
     :returns None (if record has not been changed)
              enriched record (dict, if record has changed)
     :rtype dict
@@ -64,7 +39,7 @@ def get_wptitle(record):
             cc = wp_uri.split("/")[2].split(".")[0]
 
             headers = {
-                    'User-Agent': 'lod-enrich-wikipedia-attributes-bot/0.1'
+                    'User-Agent': 'lod-enrich-wikipedia-categories-bot/0.1'
                                   '(https://github.com/slub/esmarc) '
                                   'python-requests/2.22'
                     }
@@ -87,7 +62,7 @@ def get_wptitle(record):
             try:
                 pages = wd_response.json()["query"]["pages"]
                 for page_id, page_data in pages.items():
-                    _sameAs = _base + page_data["title"]
+                    _sameAs = _base + page_data["title"].replace(' ', '_')
                     _id = _base + "?curid={}".format(page_id)
                     _name = page_data["title"].split(":")[1]
                     obj = {"@id": _id, "sameAs": _sameAs, "name": _name}
