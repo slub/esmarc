@@ -5,6 +5,8 @@ to a record by an (already existing) wikidata-ID
 
 Currently sites from the de, en, pl, and cz wikipedia are enrichted.
 
+Can be configured to overwrite certain data sources to update obsolete/false links.
+
 Input:
     elasticsearch index OR
     STDIN (as jsonl)
@@ -19,6 +21,10 @@ import requests
 import urllib
 from es2json import esgenerator, eprint, litter
 
+# list of data source which should be updated if we get a new wikipedia-link
+obsolete_isBasedOns = ['hub.culturegraph.org']
+
+# lookup table of which wikipedias to enrich
 lookup_table_wpSites = {
         "cswiki": {
                     "abbr": "cswiki",
@@ -81,8 +87,6 @@ def get_wpinfo(record):
     wd_uri = None
     wd_id = None
 
-    # list of data source which should be updated if we get a new wikipedia-link
-    obsolete_isBasedOns = ['hub.culturegraph.org']
 
     for _id in [x["@id"] for x in record["sameAs"]]:
         if "wikidata" in _id:
