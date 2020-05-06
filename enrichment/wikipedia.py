@@ -116,8 +116,8 @@ def get_wpinfo(record):
     try:
         sites = wd_response.json()["entities"][wd_id]["sitelinks"]
     except KeyError:
-        eprint("wikipedia: Data Error for Record:")
-        eprint("\'{record}\'\n\'{wp_record}\'"
+        eprint("wikipedia: Data Error for Record:\n"
+               "\'{record}\'\n\'{wp_record}\'"
                .format(record=record, wp_record=wd_response.content))
         return None
 

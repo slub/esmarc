@@ -53,7 +53,8 @@ def get_wpcategories(record):
                                                'prop': 'info',
                                                'format': 'json'})
             if not wd_response.ok:
-                eprint("wikipedia: Connection Error {status}: \'{message}\'"
+                eprint("wikipedia-categories: Connection Error "
+                       "{status}: \'{message}\'"
                        .format(status=wd_response.status_code,
                                message=wd_response.content))
                 return None
@@ -64,14 +65,16 @@ def get_wpcategories(record):
                 for page_id, page_data in pages.items():
                     _sameAs = _base + page_data["title"].replace(' ', '_')
                     _id = _base + "?curid={}".format(page_id)
-                    _name = page_data["title"].split(":")[1]
+                    # cutting off the substring 'Category:' or 'Kategorie:' from
+                    # the beginning of the title for the name field
+                    _name = ":".join(page_data["title"].split(":")[1:])
                     obj = {"@id": _id, "sameAs": _sameAs, "name": _name}
                     retobj[cc] = litter(retobj.get(cc), obj)
                     changed = True
             except KeyError:
-                eprint("wikipedia: Data Error for Record:")
-                eprint("{record}\'\n\'{wp_record}\'".format(record=record,
-                       wp_record=wd_response.content))
+                eprint("wikipedia-categories: Data Error for Record:\n"
+                       "{record}\'\n\'{wp_record}\'"
+                       .format(record=record, wp_record=wd_response.content))
                 return None
     if changed:
         record["category"] = retobj
@@ -129,7 +132,7 @@ def run():
     else:
         es_query = {
             "query": {
-                "match": {"sameAs.publisher.abbr.keyword": "WIKIDATA"}
+                "regexp": {"sameAs.publisher.abbr.keyword": "..wiki"}
                 }
             }
         iterable = esgenerator(host=host, port=port,
