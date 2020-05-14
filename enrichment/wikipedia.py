@@ -1,60 +1,88 @@
 #!/usr/bin/env python3
-""" Tool, to enrich elasticsearch data with existing wikipedia sites connected
-    to a record by an (already existing) wikidata-ID
+"""
+Tool, to enrich elasticsearch data with existing wikipedia sites connected
+to a record by an (already existing) wikidata-ID
 
-    Currently sites from the german, english, polish, and czech wikipedia are
-    enrichted.
+Currently sites from the de, en, pl, and cz wikipedia are enrichted.
 
-    Input:
-        elasticsearch index OR
-        STDIN (as jsonl)
+Can be configured to overwrite certain data sources to update obsolete/false links.
 
-    Output:
-        on STDOUT
+Input:
+    elasticsearch index OR
+    STDIN (as jsonl)
+
+Output:
+    on STDOUT
 """
 import argparse
 import json
 import sys
 import requests
 import urllib
-from es2json import esgenerator, isint, eprint
+from es2json import esgenerator, eprint, litter
 
+# list of data source which should be updated if we get a new wikipedia-link
+obsolete_isBasedOns = ['hub.culturegraph.org']
+
+# lookup table of which wikipedias to enrich
 lookup_table_wpSites = {
         "cswiki": {
-                    "@id": "https://cs.wikipedia.org",
-                    "preferredName": "Wikipedia (Tschechisch)",
-                    "abbr": "cswiki"
+                    "abbr": "cswiki",
+                    "preferredName": "Wikipedia (Tschechisch)"
                     },
         "dewiki": {
                     "abbr": "dewiki",
-                    "preferredName": "Wikipedia (Deutsch)",
-                    "@id": "http://de.wikipedia.org"
+                    "preferredName": "Wikipedia (Deutsch)"
                     },
         "plwiki": {
                     "abbr": "plwiki",
-                    "preferredName": "Wikipedia (Polnisch)",
-                    "@id": "http://pl.wikipedia.org"
+                    "preferredName": "Wikipedia (Polnisch)"
                     },
         "enwiki": {
                     "abbr": "enwiki",
-                    "preferredName": "Wikipedia (Englisch)",
-                    "@id": "http://en.wikipedia.org"
+                    "preferredName": "Wikipedia (Englisch)"
                     },
         }
 
 
-def get_wptitle(record):
+def build_abbrevs(sameAsses):
+    """
+    builds a little helper dictionary with the sameAs abbreviations of the
+    current record, so we can check from which publisher each sameAs is
+    originating, along with the position in the records sameAs array.
+    position value is needed to update obsolete wikipedia entries based on the
+    isBasedOn provenance list
+    :returns helper dictionary
+    :rtype dict
+    """
+    abbrevs = {}
+    for n, sameAs in enumerate(sameAsses):
+        abbr_url = urllib.parse.urlparse(sameAs["isBasedOn"]["@id"])
+        abbr_host = abbr_url.hostname
+        abbrevs[sameAs["publisher"]["abbr"]] = {}
+        abbrevs[sameAs["publisher"]["abbr"]]["host"] = abbr_host
+        abbrevs[sameAs["publisher"]["abbr"]]["pos"] = n
+    return abbrevs
+
+
+def get_wpinfo(record):
     """
     * iterates through all sameAs Links to extract a wikidata-ID
     * requests wikipedia sites connected to the wd-Id
     * enriches wikipedia sites if they are within lookup_table_wpSites
       (i.e. currently german, english, polish, czech)
+    * if we get an new wikipedia link from wikidata, but we
+      already got an old entry from other as obsolete defined sources,
+      we delete the obsolete entry and append the new entry
+    * enriches multilingual names if they are within lookup_table_wpSites
 
-    returns: None (if record has not been changed)
+    :returns None (if record has not been changed)
              enriched record (dict, if record has changed)
+    :rtype dict
     """
     wd_uri = None
     wd_id = None
+
     for _id in [x["@id"] for x in record["sameAs"]]:
         if "wikidata" in _id:
             wd_uri = _id
@@ -68,13 +96,14 @@ def get_wptitle(record):
                           '(https://github.com/slub/esmarc) '
                           'python-requests/2.22'
             }
-
+    site_filter_param = '|'.join([x for x in lookup_table_wpSites])
     wd_response = requests.get("https://www.wikidata.org/w/api.php",
                                headers=headers,
                                params={'action': 'wbgetentities',
                                        'ids': wd_id,
-                                       'props': 'sitelinks',
-                                       'format': 'json'})
+                                       'props': 'sitelinks/urls',
+                                       'format': 'json',
+                                       'sitefilter': site_filter_param})
 
     if not wd_response.ok:
         eprint("wikipedia: Connection Error {status}: \'{message}\'"
@@ -87,18 +116,17 @@ def get_wptitle(record):
     try:
         sites = wd_response.json()["entities"][wd_id]["sitelinks"]
     except KeyError:
-        eprint("wikipedia: Data Error for Record:\n\'{record}\'\n\'{wp_record}\'"
-               .format(record=record,wp_record=wd_response.content))
+        eprint("wikipedia: Data Error for Record:\n"
+               "\'{record}\'\n\'{wp_record}\'"
+               .format(record=record, wp_record=wd_response.content))
         return None
 
     # list of all abbreviations for publisher in record's sameAs
-    abbrevs = list(x["publisher"]["abbr"] for x in record["sameAs"])
-
+    abbrevs = build_abbrevs(record["sameAs"])
     changed = False
     for wpAbbr, info in sites.items():
         if wpAbbr in lookup_table_wpSites:
-            wikip_url = lookup_table_wpSites[wpAbbr]["@id"] + "/wiki/{title}"\
-                        .format(title=info["title"])
+            wikip_url = info["url"]
             newSameAs = {"@id": wikip_url,
                          "publisher": lookup_table_wpSites[wpAbbr],
                          "isBasedOn": {
@@ -106,8 +134,26 @@ def get_wptitle(record):
                              "@id": wd_uri
                              }
                          }
+            # wikipedia sameAs link enrichment
             if wpAbbr not in abbrevs:
                 record["sameAs"].append(newSameAs)
+                changed = True
+
+            # we already got an wikipedia link for that language, but the
+            # originating data source is obsolete, so we update
+            elif abbrevs.get(wpAbbr) and abbrevs[wpAbbr]["host"] in obsolete_isBasedOns:
+                record["sameAs"][abbrevs[wpAbbr]["pos"]] = newSameAs
+                changed = True
+
+            # multilingual name object enrichment
+            if not record.get("name"):
+                record["name"] = {}
+            cc = wpAbbr[:2]  # countrycode
+            if cc not in record["name"]:
+                record["name"][cc] = [info["title"]]
+                changed = True
+            if info["title"] not in record["name"][cc]:
+                record["name"][cc] = litter(record["name"][cc], info["title"])
                 changed = True
     if changed:
         return record
@@ -174,7 +220,7 @@ def run():
         if args.stdin:
             rec_in = json.loads(rec_in)
 
-        rec_out = get_wptitle(rec_in)
+        rec_out = get_wpinfo(rec_in)
 
         if rec_out:
             print(json.dumps(rec_out, indent=None))
