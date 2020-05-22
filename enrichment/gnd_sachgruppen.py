@@ -3,6 +3,7 @@ import sys
 import json
 import requests
 import argparse
+import urllib
 from es2json import litter, isint, esgenerator
 
 map = ["gndSubjectCategory",
@@ -14,8 +15,8 @@ map = ["gndSubjectCategory",
 def process(record, gnd, server):
     change = False  # [0]   [1] [2]         [3]   [4,-1]
     # http: / / d-nb.info / gnd / 102859268X get the GND number
-    url = "{}/gnd-records/record/{}".format(server, gnd)
-    r = requests.get(url)
+    record_url = "{}/gnd-records/record/{}".format(server, gnd)
+    r = requests.get(record_url)
     if r.ok:
         for gndItem in map:
             if r.json().get("_source").get(gndItem):
@@ -44,11 +45,11 @@ def process(record, gnd, server):
                             ddcs = fos.json().get("_source").get(
                                 "relatedDdcWithDegreeOfDeterminacy3")
                             if isinstance(ddcs, dict):
-                                newabout["identifier"].append(
-                                    {"@type": "PropertyValue", "propertyID": "DDC", "value": ddcs.get("id").split("/")[-2][:3]})
-                                newabout["@id"] = ddcs.get("id")
-                            elif isinstance(ddcs, list):
+                                ddcs = [ddcs]
+                            if isinstance(ddcs, list):
                                 for ddc in ddcs:
+                                    if isinstance(ddc, str):
+                                        ddc = {"id": ddc}
                                     newabout["identifier"].append(
                                         {"@type": "PropertyValue", "propertyID": "DDC", "value": ddc.get("id").split("/")[-2][:3]})
                                     newabout["@id"] = ddc.get("id")
@@ -68,7 +69,6 @@ def process(record, gnd, server):
                         change = True
                     else:
                         plzAdd = True
-                        # print(elem,record.get("about"))
                         if isinstance(record.get("about"), dict) and record.get("about").get("@id") and value not in record.get("about").get("@id"):
                             record["about"] = [record.pop("about")]
                         elif isinstance(record.get("about"), list):
@@ -110,19 +110,18 @@ def run():
                         help="use http://host:port for your GND ElasticSearch Server")
     args = parser.parse_args()
     if args.server:
-        slashsplit = args.server.split("/")
-        args.host = slashsplit[2].rsplit(":")[0]
-        if isint(args.server.split(":")[2].rsplit("/")[0]):
-            args.port = args.server.split(":")[2].split("/")[0]
-        args.index = args.server.split("/")[3]
-        if len(slashsplit) > 4:
-            args.type = slashsplit[4]
-        if len(slashsplit) > 5:
-            if "?pretty" in args.server:
-                args.pretty = True
-                args.id = slashsplit[5].rsplit("?")[0]
-            else:
-                args.id = slashsplit[5]
+        srv = urllib.parse.urlparse(args.server)
+        host = srv.hostname
+        port = srv.port
+        splitpath = srv.path.split("/")
+        index = splitpath[1]
+        doc_type = splitpath[2]
+        if len(splitpath) > 3:
+            doc_id = splitpath[3]
+        else:
+            doc_id = None
+    if not args.searchserver:
+        args.searchserver = "http://{}:{}".format(host, port)
     record = None
     if args.stdin:
         for line in sys.stdin:
@@ -139,7 +138,7 @@ def run():
             if (record or args.pipeline) and rec:
                 print(json.dumps(rec, indent=None))
     else:
-        for rec in esgenerator(host=args.host, port=args.port, index=args.index, type=args.type, headless=True, body={"query": {"prefix": {"sameAs.@id.keyword": "https://d-nb.info"}}}):
+        for rec in esgenerator(host=host, port=port, index=index, type=doc_type, id=doc_id, headless=True, body={"query": {"prefix": {"sameAs.@id.keyword": "https://d-nb.info"}}}):
             gnd = None
             if isinstance(rec.get("sameAs"), list):
                 for item in rec.get("sameAs"):
