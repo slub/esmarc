@@ -5,10 +5,10 @@ import requests
 import argparse
 from es2json import litter, isint, esgenerator
 
-map = ["https://d-nb.info/standards/elementset/gnd#gndSubjectCategory",
-       "https://d-nb.info/standards/elementset/gnd#fieldOfStudy",
-       "https://d-nb.info/standards/elementset/gnd#fieldOfActivity",
-       "https://d-nb.info/standards/elementset/gnd#biographicalOrHistoricalInformation"]
+map = ["gndSubjectCategory",
+       "fieldOfStudy",
+       "fieldOfActivity",
+       "biographicalOrHistoricalInformation"]
 
 
 def process(record, dnb_uri, server):
@@ -32,14 +32,14 @@ def process(record, dnb_uri, server):
                                                "@type": "PropertyValue", "value": newvalue}}
                     if value.startswith("http"):
                         newabout["@id"] = value
-                    if gndItem == "https://d-nb.info/standards/elementset/gnd#fieldOfStudy":
+                    if gndItem == "fieldOfStudy":
                         fos = requests.get(
                             server+"/gnd-records/record/"+newvalue)
-                        if fos.ok and fos.json().get("_source").get("https://d-nb.info/standards/elementset/gnd#relatedDdcWithDegreeOfDeterminacy3"):
+                        if fos.ok and fos.json().get("_source").get("relatedDdcWithDegreeOfDeterminacy3"):
                             newabout["identifier"] = [
                                 newabout.pop("identifier")]
                             ddcs = fos.json().get("_source").get(
-                                "https://d-nb.info/standards/elementset/gnd#relatedDdcWithDegreeOfDeterminacy3")
+                                "relatedDdcWithDegreeOfDeterminacy3")
                             if isinstance(ddcs, dict):
                                 newabout["identifier"].append(
                                     {"@type": "PropertyValue", "propertyID": "DDC", "value": ddcs.get("id").split("/")[-2][:3]})
@@ -49,10 +49,10 @@ def process(record, dnb_uri, server):
                                     newabout["identifier"].append(
                                         {"@type": "PropertyValue", "propertyID": "DDC", "value": ddc.get("id").split("/")[-2][:3]})
                                     newabout["@id"] = ddc.get("id")
-                            if fos.json().get("_source").get("https://d-nb.info/standards/elementset/gnd#preferredNameForTheSubjectHeading"):
+                            if fos.json().get("_source").get("preferredNameForTheSubjectHeading"):
                                 newabout["name"] = fos.json().get("_source").get(
-                                    "https://d-nb.info/standards/elementset/gnd#preferredNameForTheSubjectHeading")
-                    elif gndItem == "https://d-nb.info/standards/elementset/gnd#gndSubjectCategory":
+                                    "preferredNameForTheSubjectHeading")
+                    elif gndItem == "gndSubjectCategory":
                         url = server+"/gnd-subjects/subject/_search"
                         gsc = requests.post(
                             url, json={"query": {"match": {"@id.keyword": value}}})
