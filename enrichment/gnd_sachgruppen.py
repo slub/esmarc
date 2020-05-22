@@ -11,23 +11,26 @@ map = ["gndSubjectCategory",
        "biographicalOrHistoricalInformation"]
 
 
-def process(record, dnb_uri, server):
+def process(record, gnd, server):
     change = False  # [0]   [1] [2]         [3]   [4,-1]
     # http: / / d-nb.info / gnd / 102859268X get the GND number
-    r = requests.get(server+"/gnd-records/record/"+str(dnb_uri.split("/")[-1]))
+    url = "{}/gnd-records/record/{}".format(server, gnd)
+    r = requests.get(url)
     if r.ok:
         for gndItem in map:
             if r.json().get("_source").get(gndItem):
                 for elem in r.json().get("_source").get(gndItem):
                     value = elem
                     if isinstance(elem, str):
-                        continue
-                    elif isinstance(elem, dict):
+                        elem = {"id": elem}
+                    if isinstance(elem, dict):
                         if "id" in elem:
                             newvalue = elem.get("id").split("/")[-1]
                             value = elem.get("id")
                         else:
                             continue
+                    elif isinstance(elem, list):
+                        continue
                     newabout = {"identifier": {"propertyID": gndItem,
                                                "@type": "PropertyValue", "value": newvalue}}
                     if value.startswith("http"):
