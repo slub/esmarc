@@ -136,7 +136,7 @@ def run():
             if (record or args.pipeline) and rec:
                 print(json.dumps(rec, indent=None))
     else:
-        for rec in esgenerator(host=args.host, port=args.port, index=args.index, type=args.type, headless=True, body={"query": {"prefix": {"sameAs.keyword": "https://d-nb.info"}}}):
+        for rec in esgenerator(host=args.host, port=args.port, index=args.index, type=args.type, headless=True, body={"query": {"prefix": {"sameAs.@id.keyword": "https://d-nb.info"}}}):
             gnd = None
             if isinstance(rec.get("sameAs"), list):
                 for item in rec.get("sameAs"):
