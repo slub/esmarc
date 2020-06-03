@@ -130,11 +130,30 @@ def run():
     if args.stdin:
         iterable = sys.stdin
     else:
-        es_query = {
-            "query": {
-                "regexp": {"sameAs.publisher.abbr.keyword": "..wiki"}
+        es_query = {"query": {"bool": {"should": []}}}
+        for cc in ("de", "en", "cz", "pl"):
+            es_query["query"]["bool"]["should"].append(
+            {
+                "bool": {
+                    "must": [
+                        {
+                            "match": {
+                                "sameAs.publisher.abbr.keyword": "{}wiki".format(cc)
+                            }
+                        },
+                        {
+                            "bool": {
+                                "must_not": {
+                                    "exists": {
+                                        "field": "{}wiki".format(cc)
+                                    }
+                                }
+                            }
+                        }
+                    ]
                 }
-            }
+            })
+
         iterable = esgenerator(host=host, port=port,
                                index=index, type=doc_type, id=doc_id,
                                headless=True, body=es_query)
