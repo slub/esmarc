@@ -611,8 +611,8 @@ def get_subfield_if_4(jline, key, entity):
                     newrecord = copy.deepcopy(jline)
                     for i, subtype in enumerate(newrecord[marcfield]):
                         for elem in subtype.get("__"):
-                            if elem.get("4") and subfield4 != elem["4"]:
-                                del newrecord[marcfield][i]["__"]
+                            if elem.get("4") and subfield4 != elem["4"] and newrecord[marcfield][i].get("__"):
+                                newrecord[marcfield][i].pop("__")
                     data = litter(get_subfields(
                         newrecord, marcfield, entity), data)
     if data:
@@ -1056,9 +1056,16 @@ def getentity(record):
     """
     get the entity type of the described Thing in the record, based on the map_entity table
     """
-    zerosevenninedotb = getmarc(record, "079..b", None)
-    if zerosevenninedotb in map_entities:
-        return map_entities[zerosevenninedotb]
+    zerosevenninedotb = getmarc(record, "075..b", None)
+    if isinstance(zerosevenninedotb, str):
+        for typ in map_entities:
+            if zerosevenninedotb.startswith(typ):
+                return map_entities[typ]
+    elif isinstance(zerosevenninedotb, list):
+        for item in zerosevenninedotb:
+            for typ in map_entities:
+                if item.startswith(typ):
+                    return map_entities[typ]
     elif not zerosevenninedotb:
         return "resources"  # Titeldaten ;)
     else:
@@ -1119,6 +1126,7 @@ def get_source_include_str():
     """
     items = set()
     items.add("079")
+    items.add("075")
     for k, v in traverse(entities, ""):
         # eprint(k,v)
         if isinstance(v, str) and isint(v[:3]) and v not in items:
