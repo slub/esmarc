@@ -7,6 +7,7 @@ import elasticsearch
 import json
 #import urllib.request
 import argparse
+import datetime
 import sys
 import io
 import copy
@@ -14,7 +15,7 @@ import os.path
 import re
 import gzip
 from es2json import esgenerator, esidfilegenerator, esfatgenerator, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from swb_fix import marc2relation, isil2sameAs, map_entities, map_types
+from swb_fix import marc2relation, isil2sameAs, map_entities, map_types, extended_map_types
 
 es = None
 entities = None
@@ -136,7 +137,8 @@ def main():
                                   index=args.index,
                                   type=args.type,
                                   source=get_source_include_str(),
-                                  body=args.query
+                                  body=args.query,
+                                  chunksize=10000
                                   ):
             pool.apply_async(worker, args=(ldj,))
         pool.close()
@@ -264,6 +266,8 @@ def id2uri(string, entity):
     """
     return an id based on base_id
     """
+    if isinstance(string, list):
+        return id2uri(string[0], entity)
     global target_id
     if string.startswith(base_id):
         string = string.split(base_id_delimiter)[-1]
@@ -274,13 +278,28 @@ def id2uri(string, entity):
         return str(target_id+entity+"/"+string)
 
 
+def flat_list(lists):
+    if not isinstance(lists,list):
+        yield lists
+    for item in lists:
+        if isinstance(item, list):
+            yield flat_list(item)
+        else:
+            yield item
+
+
+def getidentifier(record, regex, entity):
+    return record["024"][0]["7_"][0]["a"]
+
 def getid(record, regex, entity):
     """
     wrapper function for schema.org mapping for id2uri
     """
-    _id = getmarc(record, regex, entity)
-    if _id:
-        return id2uri(_id, entity)
+    _id = record["024"][0]["7_"][0]["a"]
+    if isinstance(_id, list):
+        for elem in flat_list(_id):
+            return id2uri(elem, entity)
+    return id2uri(record["024"][0]["7_"][0]["a"], entity)
 
 
 def getisil(record, regex, entity):
@@ -590,14 +609,16 @@ def relatedTo(jline, key, entity):
         if data:
             return ArrayOrSingleValue(data)
 
-
-def get_subfield_if_4(jline, key, entity):
+def get_subfield_if(jline, key, entity):
     """
     get's subfield of marc-Records and builds some nodes out of them if a clause is statisfied
     """
     # e.g. split "551^4:orta" to 551 and orta
     marcfield = key.rsplit("^")[0]
-    subfield4 = key.rsplit("^")[1]
+    keyfield = key.rsplit("^")[1]
+    value = keyfield.rsplit(":")[0]
+    subfield4 = keyfield.rsplit(":")[1]
+    
     data = []
     if marcfield in jline:
         for array in jline[marcfield]:
@@ -607,11 +628,11 @@ def get_subfield_if_4(jline, key, entity):
                     for subfield_code in subfield:
                         sset[subfield_code] = litter(
                             sset.get(subfield_code), subfield[subfield_code])
-                if sset.get("4") and subfield4 in sset.get("4"):
+                if sset.get(value) and subfield4 in sset.get(value):
                     newrecord = copy.deepcopy(jline)
                     for i, subtype in enumerate(newrecord[marcfield]):
                         for elem in subtype.get("__"):
-                            if elem.get("4") and subfield4 != elem["4"] and newrecord[marcfield][i].get("__"):
+                            if elem.get(value) and subfield4 != elem[value] and newrecord[marcfield][i].get("__"):
                                 newrecord[marcfield][i].pop("__")
                     data = litter(get_subfields(
                         newrecord, marcfield, entity), data)
@@ -801,6 +822,14 @@ def getsameAs(jline, keys, entity):
             data = [data]
         if isinstance(data, list):
             for elem in data:
+                if "geonames" in elem:
+                    sameAs.append({'@id': elem,
+                                   'publisher': {'abbr': "geonames",
+                                                 'preferredName': "GeoNames"},
+                                   'isBasedOn': {"@type": "Dataset",
+                                                 "@id": ""
+                                                }
+                                 })
                 if not "DE-576" in elem:  # ignore old SWB id for root SameAs
                     data = gnd2uri(elem)
                     if data and isinstance(data, str):
@@ -1052,6 +1081,51 @@ def single_or_multi(ldj, entity):
     return ldj
 
 
+
+def gettype(record, key, entity):
+    """
+    get the entity type of the described Thing in the record
+    """
+    gnd_specdata = flat_list(getmarc(record, "075..2", None))
+    typelist = flat_list(getmarc(record, "075..b", None))
+    if isinstance(typelist, str):
+        typelist = [typelist]
+    if "gndspec" in str(gnd_specdata):
+        for typ in typelist:
+            if typ in extended_map_types:
+                return "http://schema.org/" + extended_map_types[typ]
+    for typ in typelist:
+        if typ in map_types:
+            return "http://schema.org/" + map_types[typ]
+    data = getmarc(record, "075..b", None)
+    if isinstance(data, str):
+        data = [data]
+    for item in data:
+        if item in map_types:
+            return "http://schema.org/" + map_types[typ]
+    return "http://schema.org/CreatieWork"
+
+
+def getposition(record, keys, entity):
+    """
+    get the musical position of the record
+    """
+    data = {}
+    for key in keys:
+        data[key] = getmarc(record, key, entity)
+    retobj = []
+    if data.get('383..a'):
+        retobj.append({"description": "Serial number (Fortlaufende Zählung)",
+                    "@value": data.get('383..a')})
+    elif data.get('383..b'):
+        retobj.append({"description": "Opus number (Opus-Zahl)",
+                    "@value": data.get('383..b')})
+    elif data.get('383..c'):
+        retobj.append({"description": "Thematic Index Number (Werkverzeichnisnummer)",
+                       "@value": data.get('383..c')})
+    if retobj:
+        return retobj
+
 def getentity(record):
     """
     get the entity type of the described Thing in the record, based on the map_entity table
@@ -1094,6 +1168,22 @@ def getdateModified(record, key, entity):
             elif i == 12:
                 newdate += "Z"
         return newdate
+
+
+def getdateCreated(record, key, entity):
+    """
+    get the DateModified field from the Marcrecord,
+    date of the last modification of the MarcRecord
+    """
+    date = getmarc(record, key, entity)
+    YY = int(date[:2])
+    MM = date[2:4]
+    DD = date[4:6]
+    if YY <= (datetime.date.today().year-2000):
+        year = 2000+YY
+    else:
+        year = 1900+YY
+    return "{}-{}-{}".format(year,MM,DD)
 
 
 def traverse(dict_or_list, path):
@@ -1273,10 +1363,10 @@ def worker(ldj):
 
 entities = {
     "resources": {   # mapping is 1:1 like works
-        "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
+        "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: ["001"]},
+        "single:@id": {getid: "024..a"},
+        "single:identifier": {getidentifier: ["024..a"]},
         #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
         # for SLUB via katalogbeta
         "single:offers": {getav_katalogbeta: ["852..a", "001"]},
@@ -1284,7 +1374,7 @@ entities = {
         "single:_ppn": {getmarc: "001"},
         "single:_sourceID": {getmarc: "980..b"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
         "single:preferredName": {getName: ["245..a", "245..b"]},
         "single:nameShort": {getAlternateNames: "245..a"},
         "single:nameSub": {getAlternateNames: "245..b"},
@@ -1292,7 +1382,7 @@ entities = {
         "multi:alternateName": {getAlternateNames: ["240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
         "multi:author": {get_subfields: ["100", "110"]},
         "multi:contributor": {get_subfields: ["700", "710"]},
-        "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
+        "single:publisher": {getpublisher: ["260..a","260..b", "264..a", "264..b"]},
         "single:datePublished": {getmarc: ["260..c", "264..c"]},
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:issn": {getmarc: ["022..a", "022..y", "022..z", "029..a", "490..x", "730..x", "773..x", "776..x", "780..x", "785..x", "800..x", "810..x", "811..x", "830..x"]},
@@ -1307,7 +1397,7 @@ entities = {
         "single:pageStart": {getmarc: "773..q"},
         "single:issueNumber": {getmarc: "773..l"},
         "single:volumeNumer": {getmarc: "773..v"},
-        "multi:locationCreated": {get_subfield_if_4: "551^4:orth"},
+        "multi:locationCreated": {get_subfield_if: "551^4:orth"},
         "multi:relatedTo": {relatedTo: "500..0"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
         "multi:description": {getmarc: ["500..a", "520..a"]},
@@ -1315,16 +1405,18 @@ entities = {
         "multi:relatedEvent": {get_subfield: "711"}
     },
     "works": {
-        "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
+        "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: "001"},
+        "single:@id": {getid: "024..a"},
+        "single:identifier": {getidentifier: "024..a"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "single:dateCreated": {getdateCreated: "008"},
+        "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
         "single:preferredName": {getName: ["100..t", "110..t", "130..t", "111..t", "130..a"]},
         "single:alternativeHeadline": {getmarc: ["245..c"]},
-        "multi:alternateName": {getmarc: ["400..t", "410..t", "411..t", "430..t", "240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
+        "multi:alternateName": {getmarc: ["400..a", "400..p", "400..t", "410..t", "411..t", "430..t", "240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
+        "single:name": {getName: ["100..t", "100..n", "100..p", "100..s"]},
         "multi:author": {get_subfield: "500"},
         "multi:contributor": {get_subfield: "700"},
         "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
@@ -1332,108 +1424,124 @@ entities = {
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:issn": {getmarc: ["022..a", "022..y", "022..z", "029..a", "490..x", "730..x", "773..x", "776..x", "780..x", "785..x", "800..x", "810..x", "811..x", "830..x"]},
         "multi:isbn": {getmarc: ["020..a", "022..a", "022..z", "776..z", "780..z", "785..z"]},
-        "single:genre": {getmarc: "655..a"},
+        "multi:genre": {get_subfield: "380"},
         "single:hasPart": {getmarc: "773..g"},
-        "single:isPartOf": {getmarc: ["773..t", "773..s", "773..a"]},
+        "single:isPartOf": {get_subfield: "530"},
         "single:license": {getmarc: "540..a"},
         "multi:inLanguage": {getmarc: ["377..a", "041..a", "041..d", "130..l", "730..l"]},
         "single:numberOfPages": {getnumberofpages: ["300..a", "300..b", "300..c", "300..d", "300..e", "300..f", "300..g"]},
         "single:pageStart": {getmarc: "773..q"},
         "single:issueNumber": {getmarc: "773..l"},
         "single:volumeNumer": {getmarc: "773..v"},
-        "single:locationCreated": {get_subfield_if_4: "551^orth"},
-        "multi:relatedTo": {relatedTo: "500"}
+        "single:locationCreated": {get_subfield_if: "551^4:orth"},
+        "multi:relatedTo": {relatedTo: "500"},
+        "single:position": {getposition: ["383..a", "383..b", "383..c"]},
+        "single:musicalKey": {getmarc:["384..b","384..a"]},
+        "multi:musicArrangement": {getmarc:["382..a"]},
+        "multi:firstperformance": {get_subfield: "548"},
+        "multi:description": {getmarc: ["678..b"]}
     },
     "persons": {
-        "single:@type": [URIRef(u'http://schema.org/Person')],
+        "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: "001"},
+        "single:@id": {getid: "024..a"},
+        "single:identifier": {getidentifier: "024..a"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
 
         "single:preferredName": {getName: "100..a"},
         "single:gender": {handlesex: "375..a"},
         "multi:alternateName": {getmarc: ["400..a", "400..c"]},
         "multi:relatedTo": {relatedTo: "500..0"},
+        "multi:relatedOrga": {get_subfield: "510"},
         "multi:hasOccupation": {get_subfield: "550"},
-        "single:birthPlace": {get_subfield_if_4: "551^ortg"},
-        "single:deathPlace": {get_subfield_if_4: "551^orts"},
-        "single:workLocation": {get_subfield_if_4: "551^ortw"},
-        "multi:honorificSuffix": {get_subfield_if_4: "550^adel"},
-        "multi:honorificSuffix": {get_subfield_if_4: "550^akad"},
+        "single:birthPlace": {get_subfield_if: "551^4:ortg"},
+        "single:deathPlace": {get_subfield_if: "551^4:orts"},
+        "single:workLocation": {get_subfield_if: "551^4:ortw"},
+        "multi:honorificSuffix": {get_subfield_if: "550^4:adel"},
+        "multi:honorificSuffix": {get_subfield_if: "550^4:akad"},
         "single:birthDate": {birthDate: "548"},
         "single:deathDate": {deathDate: "548"},
+        "multi:description": {getmarc: "678..b"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },
     "organizations": {
-        "single:@type": [URIRef(u'http://schema.org/Organization')],
+        "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: "001"},
+        "single:@id": {getid: "024..a"},
+        "single:identifier": {getidentifier: "024..a"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
 
         "single:preferredName": {getName: "110..a+b"},
         "multi:alternateName": {getmarc: "410..a+b"},
+        "multi:isPartOf": {get_subfield: "510"},
+        "multi:date":  {getmarc: ["548..a", "548..i"]},
+        "multi:hasPart": {get_subfield: "550"},
 
-        "single:additionalType": {get_subfield_if_4: "550^obin"},
-        "single:parentOrganization": {get_subfield_if_4: "551^adue"},
-        "single:location": {get_subfield_if_4: "551^orta"},
-        "single:fromLocation": {get_subfield_if_4: "551^geoa"},
-        "single:areaServed": {get_subfield_if_4: "551^geow"},
+        "single:additionalType": {get_subfield_if: "550^4:obin"},
+        "single:parentOrganization": {get_subfield_if: "551^4:adue"},
+        "single:location": {get_subfield_if: "551^4:orta"},
+        "single:fromLocation": {get_subfield_if: "551^4:geoa"},
+        "single:areaServed": {get_subfield_if: "551^geow"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },
     "geo": {
-        "single:@type": [URIRef(u'http://schema.org/Place')],
+        "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: "001"},
+        "single:@id": {getid: "024..a"},
+        "single:identifier": {getidentifier: "024..a"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
 
-        "single:preferredName": {getName: "151..a"},
+        "single:preferredName": {getName: ["151..a","151..g","151..e","151..x"]},
         "multi:alternateName": {getmarc: "451..a"},
-        "single:description": {get_subfield: "551"},
+        "single:description": {getmarc: "678..b"},
+        "multi:relatedPersons": {get_subfield: "500"},
+        "multi:relatedOrgas": {get_subfield: "510"},
+        "multi:dateCreated": {get_subfield_if: "548^4:Erstellungszeit"},
+        "multi:corpname": {get_subfield: "410"},
+        "multi:predecessorOf": {get_subfield_if: "551^i:Nachfolger"},
+        "multi:successorOf": {get_subfield_if: "551^i:Vorgaenger"},
         "single:geo": {getGeoCoordinates: {"longitude": ["034..d", "034..e"], "latitude": ["034..f", "034..g"]}},
         "single:adressRegion": {getmarc: "043..c"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },
     "topics": {
-        "single:@type": [URIRef(u'http://schema.org/Thing')],
+        "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: "001"},
+        "single:@id": {getid: "024..a"},
+        "single:identifier": {getidentifier: "024..a"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
         "single:preferredName": {getName: "150..a"},
         "multi:alternateName": {getmarc: "450..a+x"},
         "single:description": {getmarc: "679..a"},
         "multi:additionalType": {get_subfield: "550"},
-        "multi:location": {get_subfield_if_4: "551^orta"},
-        "multi:fromLocation": {get_subfield_if_4: "551^geoa"},
-        "multi:areaServed": {get_subfield_if_4: "551^geow"},
-        "multi:contentLocation": {get_subfield_if_4: "551^punk"},
-        "multi:participant": {get_subfield_if_4: "551^bete"},
-        "multi:relatedTo": {get_subfield_if_4: "551^vbal"},
+        "multi:location": {get_subfield_if: "551^4:orta"},
+        "multi:fromLocation": {get_subfield_if: "551^4:geoa"},
+        "multi:areaServed": {get_subfield_if: "551^4:geow"},
+        "multi:contentLocation": {get_subfield_if: "551^4:punk"},
+        "multi:participant": {get_subfield_if: "551^4:bete"},
+        "multi:relatedTo": {get_subfield_if: "551^4:vbal"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },
     "events": {
-        "single:@type": [URIRef(u'http://schema.org/Event')],
+        "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: "001"},
+        "single:@id": {getid: "024..a"},
+        "single:identifier": {getidentifier: "024..a"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
 
         "single:preferredName": {getName: ["111..a"]},
         "multi:alternateName": {getmarc: ["411..a"]},
-        "single:location": {get_subfield_if_4: "551^ortv"},
+        "single:location": {get_subfield_if: "551^4:ortv"},
         "single:startDate": {birthDate: "548"},
         "single:endDate": {deathDate: "548"},
         "single:adressRegion": {getmarc: "043..c"},
