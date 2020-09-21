@@ -289,17 +289,24 @@ def flat_list(lists):
 
 
 def getidentifier(record, regex, entity):
-    return record["024"][0]["7_"][0]["a"]
+    if 'gnd' in target_id:
+        return record["024"][0]["7_"][0]["a"]
+    else:
+        return record["001"]
+
 
 def getid(record, regex, entity):
     """
     wrapper function for schema.org mapping for id2uri
     """
-    _id = record["024"][0]["7_"][0]["a"]
+    if 'gnd' in target_id:
+        _id = record["024"][0]["7_"][0]["a"]
+    else:
+        _id = record["001"]
     if isinstance(_id, list):
         for elem in flat_list(_id):
             return id2uri(elem, entity)
-    return id2uri(record["024"][0]["7_"][0]["a"], entity)
+    return id2uri(_id, entity)
 
 
 def getisil(record, regex, entity):
@@ -739,76 +746,86 @@ def get_subfield(jline, key, entity):
               "655": "topics",
               "830": "resources"
               }
-    entityType = keymap.get(key)
     data = []
-    if key in jline:
-        for array in jline[key]:
-            for k, v in array.items():
-                sset = {}
-                for subfield in v:
-                    for subfield_code in subfield:
-                        sset[subfield_code] = litter(
-                            sset.get(subfield_code), subfield[subfield_code])
-                node = {}
-                if sset.get("t"):  # if this field got an t, then its a Werktiteldaten, we use this field in another function then
-                    continue
-                for typ in ["D", "d"]:
-                    if isinstance(sset.get(typ), str):  # http://www.dnb.de/SharedDocs/Downloads/DE/DNB/wir/marc21VereinbarungDatentauschTeil1.pdf?__blob=publicationFile Seite 14
-                        node["@type"] = "http://schema.org/"
-                        if sset.get(typ) in map_entities and sset.get(typ) in map_types:
-                            node["@type"] += map_types.get(sset[typ])
-                            entityType = map_entities.get(sset[typ])
-                        else:
-                            node.pop("@type")
-                if entityType == "resources":
-                    if sset.get("w") and not sset.get("0"):
-                        sset["0"] = sset.get("w")
-                    if sset.get("v"):
-                        node["position"] = sset["v"]
-                if sset.get("0"):
-                    if isinstance(sset["0"], list) and entityType == "persons":
-                        for n, elem in enumerate(sset["0"]):
-                            if elem and "DE-576" in elem:
-                                sset["0"].pop(n)
-                    uri = gnd2uri(sset.get("0"))
-                    if isinstance(uri, str) and uri.startswith(base_id) and entityType != "resources":
-                        node["@id"] = id2uri(uri, entityType)
-                    elif isinstance(uri, str) and uri.startswith(base_id) and entityType == "resources":
-                        node["sameAs"] = base_id + \
-                            id2uri(uri, entityType).split("/")[-1]
-                    elif isinstance(uri, str) and uri.startswith("http") and not uri.startswith(base_id):
-                        node["sameAs"] = uri
-                    elif isinstance(uri, str):
-                        node["identifier"] = uri
-                    elif isinstance(uri, list):
-                        node["sameAs"] = None
-                        node["identifier"] = None
-                        for elem in uri:
-                            if isinstance(elem, str) and elem.startswith(base_id):
-                                # if key=="830":  #Dirty Workaround for finc id
-                                    # rsplit=elem.rsplit("=")
-                                    # rsplit[-1]="0-"+rsplit[-1]
-                                    # elem='='.join(rsplit)
-                                node["@id"] = id2uri(elem, entityType)
-                            elif isinstance(elem, str) and elem.startswith("http") and not elem.startswith(base_id):
-                                node["sameAs"] = litter(node["sameAs"], elem)
-                            elif elem:
-                                node["identifier"] = litter(
-                                    node["identifier"], elem)
-                if isinstance(sset.get("a"), str) and len(sset.get("a")) > 1:
-                    node["name"] = sset.get("a")
-                elif isinstance(sset.get("a"), list):
-                    for elem in sset.get("a"):
-                        if len(elem) > 1:
-                            node["name"] = litter(node.get("name"), elem)
-                if sset.get("i"):
-                    node["description"] = sset["i"]
-                if sset.get("n") and entityType == "events":
-                    node["position"] = sset["n"]
-                if node:
-                    data = litter(data, node)
-        if data:
-            return ArrayOrSingleValue(data)
+    if isinstance(key, list):
+        for _key in key:
+            data = litter(data, get_subfield(jline, _key, entity))
+    else:
+        entityType = keymap.get(key)
+        if key in jline:
+            for array in jline[key]:
+                for k, v in array.items():
+                    sset = {}
+                    for subfield in v:
+                        for subfield_code in subfield:
+                            sset[subfield_code] = litter(
+                                sset.get(subfield_code), subfield[subfield_code])
+                    node = {}
+                    if sset.get("t"):  # if this field got an t, then its a Werktiteldaten, we use this field in another function then
+                        continue
+                    for typ in ["D", "d"]:
+                        if isinstance(sset.get(typ), str):  # http://www.dnb.de/SharedDocs/Downloads/DE/DNB/wir/marc21VereinbarungDatentauschTeil1.pdf?__blob=publicationFile Seite 14
+                            node["@type"] = "http://schema.org/"
+                            if sset.get(typ) in map_entities and sset.get(typ) in map_types:
+                                node["@type"] += map_types.get(sset[typ])
+                                entityType = map_entities.get(sset[typ])
+                            else:
+                                node.pop("@type")
+                    if entityType == "resources":
+                        if sset.get("w") and not sset.get("0"):
+                            sset["0"] = sset.get("w")
+                        if sset.get("v"):
+                            node["position"] = sset["v"]
+                    if sset.get("0"):
+                        if isinstance(sset["0"], list) and entityType == "persons":
+                            for n, elem in enumerate(sset["0"]):
+                                if elem and "DE-576" in elem:
+                                    sset["0"].pop(n)
+                        uri = gnd2uri(sset.get("0"))
+                        if isinstance(uri, str) and uri.startswith(base_id) and entityType != "resources":
+                            node["@id"] = id2uri(uri, entityType)
+                        elif isinstance(uri, str) and uri.startswith(base_id) and entityType == "resources":
+                            node["sameAs"] = base_id + \
+                                id2uri(uri, entityType).split("/")[-1]
+                        elif isinstance(uri, str) and uri.startswith("http") and not uri.startswith(base_id):
+                            node["sameAs"] = uri
+                        elif isinstance(uri, str):
+                            node["identifier"] = uri
+                        elif isinstance(uri, list):
+                            node["sameAs"] = None
+                            node["identifier"] = None
+                            for elem in uri:
+                                if isinstance(elem, str) and elem.startswith(base_id):
+                                    # if key=="830":  #Dirty Workaround for finc id
+                                        # rsplit=elem.rsplit("=")
+                                        # rsplit[-1]="0-"+rsplit[-1]
+                                        # elem='='.join(rsplit)
+                                    node["@id"] = id2uri(elem, entityType)
+                                elif isinstance(elem, str) and elem.startswith("http") and not elem.startswith(base_id):
+                                    node["sameAs"] = litter(node["sameAs"], elem)
+                                elif elem:
+                                    node["identifier"] = litter(
+                                        node["identifier"], elem)
+                    if isinstance(sset.get("a"), str) and len(sset.get("a")) > 1:
+                        node["name"] = sset.get("a")
+                    elif isinstance(sset.get("a"), list):
+                        for elem in sset.get("a"):
+                            if len(elem) > 1:
+                                node["name"] = litter(node.get("name"), elem)
+                    if sset.get("i"):
+                        node["description"] = sset["i"]
+                    if sset.get("n") and entityType == "events":
+                        node["position"] = sset["n"]
+                    if sset.get("4"):
+                        if isinstance(sset["4"], str):
+                            sset["4"] = [sset.get("4")]
+                        for elem in sset.get("4"):
+                            if elem.startswith("http"):
+                                node["additionalType"] = elem
+                    if node:
+                        data = litter(data, node)
+    if data:
+        return ArrayOrSingleValue(data)
 
 
 def getsameAs(jline, keys, entity):
@@ -1280,9 +1297,12 @@ def process_line(jline, host, port, index, type):
             if "issn" in mapline:
                 mapline["@type"] = URIRef(
                     u'http://schema.org/CreativeWorkSeries')
-            if index:
+            if index and 'gnd' in target_id:
+                mapline["isBasedOn"] = target_id + "source/" + \
+                    index+"/"+getid(jline, "024..a", entity)
+            else:
                 mapline["isBasedOn"] = target_id+"source/" + \
-                    index+"/"+getmarc(jline, "001", None)
+                    index+"/"+getid(jline, "001", None)
             if isinstance(mapline.get("sameAs"), list):
                 for n, sameAs in enumerate(mapline["sameAs"]):
                     mapline["sameAs"][n]["isBasedOn"]["@id"] = mapline["isBasedOn"]
@@ -1365,8 +1385,8 @@ entities = {
     "resources": {   # mapping is 1:1 like works
         "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "024..a"},
-        "single:identifier": {getidentifier: ["024..a"]},
+        "single:@id": {getid: ["001", "024..a"]},
+        "single:identifier": {getidentifier: ["001", "024..a"]},
         #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
         # for SLUB via katalogbeta
         "single:offers": {getav_katalogbeta: ["852..a", "001"]},
@@ -1407,8 +1427,8 @@ entities = {
     "works": {
         "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "024..a"},
-        "single:identifier": {getidentifier: "024..a"},
+        "single:@id": {getid: ["001", "024..a"]},
+        "single:identifier": {getidentifier: ["001", "024..a"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {getdateCreated: "008"},
@@ -1444,8 +1464,8 @@ entities = {
     "persons": {
         "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "024..a"},
-        "single:identifier": {getidentifier: "024..a"},
+        "single:@id": {getid: ["001", "024..a"]},
+        "single:identifier": {getidentifier: ["001", "024..a"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
@@ -1469,8 +1489,8 @@ entities = {
     "organizations": {
         "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "024..a"},
-        "single:identifier": {getidentifier: "024..a"},
+        "single:@id": {getid: ["001", "024..a"]},
+        "single:identifier": {getidentifier: ["001", "024..a"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
@@ -1491,8 +1511,8 @@ entities = {
     "geo": {
         "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "024..a"},
-        "single:identifier": {getidentifier: "024..a"},
+        "single:@id": {getid: ["001", "024..a"]},
+        "single:identifier": {getidentifier: ["001", "024..a"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
@@ -1500,8 +1520,7 @@ entities = {
         "single:preferredName": {getName: ["151..a","151..g","151..e","151..x"]},
         "multi:alternateName": {getmarc: "451..a"},
         "single:description": {getmarc: "678..b"},
-        "multi:relatedPersons": {get_subfield: "500"},
-        "multi:relatedOrgas": {get_subfield: "510"},
+        "multi:relatedTo": {get_subfield: ["500", "510"]},
         "multi:dateCreated": {get_subfield_if: "548^4:Erstellungszeit"},
         "multi:corpname": {get_subfield: "410"},
         "multi:predecessorOf": {get_subfield_if: "551^i:Nachfolger"},
@@ -1513,8 +1532,8 @@ entities = {
     "topics": {
         "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "024..a"},
-        "single:identifier": {getidentifier: "024..a"},
+        "single:@id": {getid: ["001", "024..a"]},
+        "single:identifier": {getidentifier: ["001", "024..a"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
@@ -1533,8 +1552,8 @@ entities = {
     "events": {
         "single:@type": {gettype: ["075", "079"]},
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
-        "single:@id": {getid: "024..a"},
-        "single:identifier": {getidentifier: "024..a"},
+        "single:@id": {getid: ["001", "024..a"]},
+        "single:identifier": {getidentifier: ["001", "024..a"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["024..a", "034..0", "035..a", "670..u"]},
