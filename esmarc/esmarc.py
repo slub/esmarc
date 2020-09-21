@@ -1302,7 +1302,7 @@ def process_line(jline, host, port, index, type):
                     index+"/"+getid(jline, "024..a", entity)
             else:
                 mapline["isBasedOn"] = target_id+"source/" + \
-                    index+"/"+getid(jline, "001", None)
+                    index+"/"+getid(jline, "001", entity)
             if isinstance(mapline.get("sameAs"), list):
                 for n, sameAs in enumerate(mapline["sameAs"]):
                     mapline["sameAs"][n]["isBasedOn"]["@id"] = mapline["isBasedOn"]
