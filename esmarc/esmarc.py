@@ -1505,7 +1505,7 @@ entities = {
         "single:parentOrganization": {get_subfield_if: "551^4:adue"},
         "single:location": {get_subfield_if: "551^4:orta"},
         "single:fromLocation": {get_subfield_if: "551^4:geoa"},
-        "single:areaServed": {get_subfield_if: "551^geow"},
+        "single:areaServed": {get_subfield_if: "551^4:geow"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },
     "geo": {
