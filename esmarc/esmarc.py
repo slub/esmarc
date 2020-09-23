@@ -1256,7 +1256,11 @@ def process_field(record, value, entity):
         return value
     elif isinstance(value, list):
         for elem in value:
-            ret.append(ArrayOrSingleValue(process_field(record, elem, entity)))
+            if isinstance(elem, dict):
+                for function, parameter in elem.items():
+                    ret.append(function(record, parameter, entity))
+            else:
+                ret.append(ArrayOrSingleValue(process_field(record, elem, entity)))
     elif callable(value):
         # Function without paremeters defined in mapping
         return ArrayOrSingleValue(value(record, entity))
@@ -1473,8 +1477,7 @@ entities = {
         "single:preferredName": {getName: "100..a"},
         "single:gender": {handlesex: "375..a"},
         "multi:alternateName": {getmarc: ["400..a", "400..c"]},
-        "multi:relatedTo": {relatedTo: "500..0"},
-        "multi:relatedOrga": {get_subfield: "510"},
+        "multi:relatedTo": [{relatedTo: "500..0"}, {get_subfield: "510"}],
         "multi:hasOccupation": {get_subfield: "550"},
         "single:birthPlace": {get_subfield_if: "551^4:ortg"},
         "single:deathPlace": {get_subfield_if: "551^4:orts"},
