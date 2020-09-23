@@ -1278,7 +1278,7 @@ def process_line(jline, host, port, index, type):
         mapline = {}
         for sortkey, val in entities[entity].items():
             key = sortkey.split(":")[1]
-            value = ArrayOrSingleValue(process_field(jline, val, entity))
+            value = removeNone(removeEmpty(ArrayOrSingleValue(process_field(jline, val, entity))))
             if value:
                 if "related" in key and isinstance(value, dict) and "_key" in value:
                     dictkey = value.pop("_key")
