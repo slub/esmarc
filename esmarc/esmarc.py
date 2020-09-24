@@ -279,13 +279,14 @@ def id2uri(string, entity):
 
 
 def flat_list(lists):
-    if not isinstance(lists,list):
+    if not isinstance(lists, list):
         yield lists
-    for item in lists:
-        if isinstance(item, list):
-            yield flat_list(item)
-        else:
-            yield item
+    elif isinstance(lists, list):
+        for item in lists:
+            if isinstance(item, list):
+                yield flat_list(item)
+            else:
+                yield item
 
 
 def getidentifier(record, regex, entity):
@@ -761,8 +762,6 @@ def get_subfield(jline, key, entity):
                             sset[subfield_code] = litter(
                                 sset.get(subfield_code), subfield[subfield_code])
                     node = {}
-                    if sset.get("t"):  # if this field got an t, then its a Werktiteldaten, we use this field in another function then
-                        continue
                     for typ in ["D", "d"]:
                         if isinstance(sset.get(typ), str):  # http://www.dnb.de/SharedDocs/Downloads/DE/DNB/wir/marc21VereinbarungDatentauschTeil1.pdf?__blob=publicationFile Seite 14
                             node["@type"] = "http://schema.org/"
@@ -808,8 +807,16 @@ def get_subfield(jline, key, entity):
                                         node["identifier"], elem)
                     if isinstance(sset.get("a"), str) and len(sset.get("a")) > 1:
                         node["name"] = sset.get("a")
-                    elif isinstance(sset.get("a"), list):
+                    if isinstance(sset.get("t"), str) and len(sset.get("t")) >1:
+                        node["name"] = sset.get("t")
+                        if isinstance(sset.get("a"), str) and len(sset.get("a")) > 1:
+                            node["author"] = sset.get("a")
+                    if isinstance(sset.get("a"), list):
                         for elem in sset.get("a"):
+                            if len(elem) > 1:
+                                node["name"] = litter(node.get("name"), elem)
+                    if isinstance(sset.get("t"), list):
+                        for elem in sset.get("t"):
                             if len(elem) > 1:
                                 node["name"] = litter(node.get("name"), elem)
                     if sset.get("i"):
@@ -1117,9 +1124,10 @@ def gettype(record, key, entity):
     data = getmarc(record, "075..b", None)
     if isinstance(data, str):
         data = [data]
-    for item in data:
-        if item in map_types:
-            return "http://schema.org/" + map_types[typ]
+    if isinstance(data, list):
+        for item in data:
+            if item in map_types:
+                return "http://schema.org/" + map_types[typ]
     return "http://schema.org/CreatieWork"
 
 
@@ -1411,7 +1419,7 @@ entities = {
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:issn": {getmarc: ["022..a", "022..y", "022..z", "029..a", "490..x", "730..x", "773..x", "776..x", "780..x", "785..x", "800..x", "810..x", "811..x", "830..x"]},
         "multi:isbn": {getisbn: ["020..a", "022..a", "022..z", "776..z", "780..z", "785..z"]},
-        "multi:genre": {getgenre: "655..a"},
+        "multi:genre": {get_subfield: "655"},
         "multi:hasPart": {handleHasPart: ["700"]},
         "multi:isPartOf": {getmarc: ["773..t", "773..s", "773..a"]},
         "multi:partOfSeries": {get_subfield: "830"},
@@ -1422,11 +1430,9 @@ entities = {
         "single:issueNumber": {getmarc: "773..l"},
         "single:volumeNumer": {getmarc: "773..v"},
         "multi:locationCreated": {get_subfield_if: "551^4:orth"},
-        "multi:relatedTo": {relatedTo: "500..0"},
-        "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
-        "multi:description": {getmarc: ["500..a", "520..a"]},
-        "multi:mentions": {get_subfield: "689"},
-        "multi:relatedEvent": {get_subfield: "711"}
+        "multi:relatedTo": [{relatedTo: "500..0"}, {get_subfield: "711"}],
+        "multi:about": [{handle_about: ["936", "084", "083", "082"]}, {get_subfield: "689"}],
+        "multi:description": {getmarc: ["500..a", "520..a"]}
     },
     "works": {
         "single:@type": {gettype: ["075", "079"]},
