@@ -866,7 +866,7 @@ def getsameAs(jline, keys, entity):
                                                    "@id": "data.slub-dresden.de", },
                                                "isBasedOn": {
                                                    "@type": "Dataset",
-                                                   "@id": "",
+                                                   "@id": basedOn,
                                                }
                                                })
     for n, item in enumerate(sameAs):
@@ -1284,6 +1284,8 @@ def process_line(jline, host, port, index, type):
     entity = getentity(jline)
     if entity:
         mapline = {}
+        global basedOn 
+        basedOn = "{}source/{}/{}".format(target_id, index, getidentifier(jline, None, None))
         for sortkey, val in entities[entity].items():
             key = sortkey.split(":")[1]
             value = removeNone(removeEmpty(ArrayOrSingleValue(process_field(jline, val, entity))))
@@ -1301,23 +1303,13 @@ def process_line(jline, host, port, index, type):
                 else:
                     mapline[key] = litter(mapline.get(key), value)
         if mapline:
-            if "publisherImprint" in mapline:
-                mapline["@context"] = list(
-                    [mapline.pop("@context"), URIRef(u'http://bib.schema.org/')])
             if "isbn" in mapline:
                 mapline["@type"] = URIRef(u'http://schema.org/Book')
             if "issn" in mapline:
                 mapline["@type"] = URIRef(
                     u'http://schema.org/CreativeWorkSeries')
-            if index and 'gnd' in target_id:
-                mapline["isBasedOn"] = target_id + "source/" + \
-                    index+"/"+getid(jline, "024..a", entity)
-            else:
-                mapline["isBasedOn"] = target_id+"source/" + \
-                    index+"/"+getid(jline, "001", entity)
-            if isinstance(mapline.get("sameAs"), list):
-                for n, sameAs in enumerate(mapline["sameAs"]):
-                    mapline["sameAs"][n]["isBasedOn"]["@id"] = mapline["isBasedOn"]
+            if index:
+                mapline["isBasedOn"] = basedOn
             return {entity: single_or_multi(removeNone(removeEmpty(mapline)), entity)}
 
 
@@ -1345,6 +1337,9 @@ def init_mp(h, p, pr, z):
     global port
     global prefix
     global comp
+    global basedOn
+    if not basedOn:
+        basedOn = ""
     if not pr:
         prefix = ""
     elif pr[-1] != "/":
