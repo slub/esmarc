@@ -1337,8 +1337,8 @@ def init_mp(h, p, pr, z):
     global port
     global prefix
     global comp
-    if not basedOn:
-        basedOn = ""
+    global basedOn
+    basedOn = ""
     if not pr:
         prefix = ""
     elif pr[-1] != "/":
