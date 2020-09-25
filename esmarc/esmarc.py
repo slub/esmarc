@@ -1127,7 +1127,7 @@ def gettype(record, key, entity):
     if isinstance(data, list):
         for item in data:
             if item in map_types:
-                return "http://schema.org/" + map_types[typ]
+                return "http://schema.org/" + map_types[item]
     return "http://schema.org/CreativeWork"
 
 
