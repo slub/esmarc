@@ -745,6 +745,7 @@ def get_subfield(jline, key, entity):
               "550": "topics",
               "551": "geo",
               "655": "topics",
+              "773": "resources",
               "830": "resources"
               }
     data = []
@@ -775,6 +776,8 @@ def get_subfield(jline, key, entity):
                             sset["0"] = sset.get("w")
                         if sset.get("v"):
                             node["position"] = sset["v"]
+                        if sset.get("d"):
+                            node["publisher"] = sset["d"]
                     if sset.get("0"):
                         if isinstance(sset["0"], list) and entityType == "persons":
                             for n, elem in enumerate(sset["0"]):
@@ -795,22 +798,19 @@ def get_subfield(jline, key, entity):
                             node["identifier"] = None
                             for elem in uri:
                                 if isinstance(elem, str) and elem.startswith(base_id):
-                                    # if key=="830":  #Dirty Workaround for finc id
-                                        # rsplit=elem.rsplit("=")
-                                        # rsplit[-1]="0-"+rsplit[-1]
-                                        # elem='='.join(rsplit)
                                     node["@id"] = id2uri(elem, entityType)
                                 elif isinstance(elem, str) and elem.startswith("http") and not elem.startswith(base_id):
                                     node["sameAs"] = litter(node["sameAs"], elem)
                                 elif elem:
-                                    node["identifier"] = litter(
-                                        node["identifier"], elem)
+                                    node["identifier"] = litter(node["identifier"], elem)
                     if isinstance(sset.get("a"), str) and len(sset.get("a")) > 1:
                         node["name"] = sset.get("a")
                     if isinstance(sset.get("t"), str) and len(sset.get("t")) >1:
                         node["name"] = sset.get("t")
                         if isinstance(sset.get("a"), str) and len(sset.get("a")) > 1:
                             node["author"] = sset.get("a")
+                    if isinstance(sset.get("x"), str):
+                        node["issn"] = sset["x"]
                     if isinstance(sset.get("a"), list):
                         for elem in sset.get("a"):
                             if len(elem) > 1:
@@ -1418,7 +1418,7 @@ entities = {
         "multi:isbn": {getisbn: ["020..a", "022..a", "022..z", "776..z", "780..z", "785..z"]},
         "multi:genre": {get_subfield: "655"},
         "multi:hasPart": {handleHasPart: ["700"]},
-        "multi:isPartOf": {getmarc: ["773..t", "773..s", "773..a"]},
+        "multi:isPartOf": {get_subfield: ["773"]},
         "multi:partOfSeries": {get_subfield: "830"},
         "single:license": {getmarc: "540..a"},
         "multi:inLanguage": {getmarc: ["377..a", "041..a", "041..d", "130..l", "730..l"]},
