@@ -1110,10 +1110,10 @@ def gettype(record, key, entity):
     """
     get the entity type of the described Thing in the record
     """
-    gnd_specdata = flat_list(getmarc(record, "075..2", None))
+    gnd_specdata = getmarc(record, "075..2", None)
     typelist = flat_list(getmarc(record, "075..b", None))
-    if isinstance(typelist, str):
-        typelist = [typelist]
+    if not gnd_specdata:
+        typelist = flat_list(getmarc(record, "079..b", None))
     if "gndspec" in str(gnd_specdata):
         for typ in typelist:
             if typ in extended_map_types:
@@ -1128,7 +1128,7 @@ def gettype(record, key, entity):
         for item in data:
             if item in map_types:
                 return "http://schema.org/" + map_types[typ]
-    return "http://schema.org/CreatieWork"
+    return "http://schema.org/CreativeWork"
 
 
 def getposition(record, keys, entity):
@@ -1151,11 +1151,14 @@ def getposition(record, keys, entity):
     if retobj:
         return retobj
 
+
 def getentity(record):
     """
     get the entity type of the described Thing in the record, based on the map_entity table
     """
     zerosevenninedotb = getmarc(record, "075..b", None)
+    if not zerosevenninedotb:
+        zerosevenninedotb = getmarc(record, "079..b", None)
     if isinstance(zerosevenninedotb, str):
         for typ in map_entities:
             if zerosevenninedotb.startswith(typ):
