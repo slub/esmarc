@@ -993,8 +993,11 @@ def getName(record, key, entity):
     get the name of the record
     """
     data = getAlternateNames(record, key, entity)
-    if isinstance(data, list):
-        data = " ".join(data)
+    if isinstance(data, list) and entity in ("resources", "works"):
+        data = " - ".join(data)
+    else:
+        if isinstance(data, list):
+            data = " ".join(data)
     return data if data else None
 
 
