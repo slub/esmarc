@@ -445,13 +445,7 @@ def handle_about(jline, key, entity):
                 ret.append(handle_single_ddc(data))
         elif k == "655":
             data = get_subfield(jline, k, entity)
-            if isinstance(data, dict):
-                data = [data]
-            if isinstance(data, list):
-                for elem in data:
-                    if elem.get("identifier"):
-                        elem["value"] = elem.pop("identifier")
-                    ret.append({"identifier": elem})
+            ret.append(data)
     if len(ret) > 0:
         return ret
     else:
