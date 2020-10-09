@@ -994,7 +994,7 @@ def getName(record, key, entity):
     """
     data = getAlternateNames(record, key, entity)
     if isinstance(data, list) and entity in ("resources", "works"):
-        data = " - ".join(data)
+        data = " : ".join(data)
     else:
         if isinstance(data, list):
             data = " ".join(data)
