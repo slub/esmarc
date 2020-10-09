@@ -902,12 +902,12 @@ def getav_katalogbeta(record, key, entity):
     produce a link to the katalogbeta for availability information
     """
     retOffers = list()
-    finc_id = getmarc(record, key[1], entity)
+    swb_ppn = getmarc(record, key[1], entity)
     branchCode = getmarc(record, key[0], entity)
     # eprint(branchCode,finc_id)
-    if finc_id and isinstance(branchCode, str) and branchCode == "DE-14":
+    if swb_ppn and isinstance(branchCode, str) and branchCode == "DE-14":
         branchCode = [branchCode]
-    if finc_id and isinstance(branchCode, list):
+    if swb_ppn and isinstance(branchCode, list):
         for bc in branchCode:
             if bc == "DE-14":
                 retOffers.append({
@@ -918,7 +918,7 @@ def getav_katalogbeta(record, key, entity):
                         "name": isil2sameAs.get(bc),
                         "branchCode": "DE-14"
                     },
-                    "availability": "https://katalogbeta.slub-dresden.de/id/"+finc_id
+                    "availability": "https://katalog.slub-dresden.de/id/0-{}".format(swb_ppn)
                 })
     if retOffers:
         return retOffers
