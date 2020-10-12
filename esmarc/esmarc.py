@@ -96,8 +96,10 @@ def main():
         json_record = es.get_source(
             index=args.index, doc_type=args.type, id=args.id, _source=source)
         if json_record:
-            print(json.dumps(process_line(json_record, args.host,
-                                          args.port, args.index, args.type), indent=tabbing))
+            rdf_record = process_line(json_record, args.host,
+                                          args.port, args.index, args.type)
+            for entity in rdf_record:
+                print(json.dumps(rdf_record[entity]))
     elif args.host and args.index and args.type and args.idfile:
         setupoutput(args.prefix)
         pool = Pool(args.w, initializer=init_mp, initargs=(
