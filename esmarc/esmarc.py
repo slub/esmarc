@@ -419,18 +419,21 @@ def getmarcvalues(record, regex, entity):
 
 def handle_about(jline, key, entity):
     """
-    produces schema.org/about: nodes based on RVK, DDC and GND subjects
+    produces schema.org/about: nodes based on RVK, DDC, BK and GND subjects
     """
     ret = []
     for k in key:
         if k == "936" or k == "084":
             data = getmarc(jline, k, None)
+            if isinstance(data, dict):
+                data = [data]
             if isinstance(data, list):
                 for elem in data:
-                    ret.append(handle_single_rvk(elem))
-            elif isinstance(data, dict):
-                ret.append(handle_single_rvk(data))
-        elif k == "082" or k == "083":
+                    if 'rv' in elem:  # RVK
+                        ret.append(handle_single_rvk(elem))
+                    elif 'bk' in elem:  #Basisklassifikation
+                        ret.append(handle_single_bk(elem))
+        elif k == "082" or k == "083": # DDC
             data = getmarc(jline, k+"..a", None)
             if isinstance(data, list):
                 for elem in data:
@@ -466,6 +469,26 @@ def handle_single_ddc(data):
                            "propertyID": "DDC",
                            "value": data},
             "@id": "http://purl.org/NET/decimalised#c"+data[:3]}
+
+
+def handle_single_bk(data):
+    """
+    produces a about node based on RVK
+    """
+    sset = {}
+    record = {}
+    if "bk" in data:
+        for subfield in data.get("bk"):
+            for k, v in subfield.items():
+                sset[k] = litter(sset.get(k), v)
+        if "a" in sset:
+            record["@id"] = "http://uri.gbv.de/terminology/bk/{}".format(sset['a'])
+            record["identifier"] = {"@type": "PropertyValue",
+                                    "propertyID": "BK",
+                                    "value": sset.get("a")}
+        if "j" in sset:
+            record["name"] = sset.get("j")
+        return record
 
 
 def handle_single_rvk(data):
