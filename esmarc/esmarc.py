@@ -473,7 +473,7 @@ def handle_single_ddc(data):
 
 def handle_single_bk(data):
     """
-    produces a about node based on RVK
+    produces a about node based on Basisklassifikation
     """
     sset = {}
     record = {}
