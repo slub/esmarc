@@ -1304,7 +1304,12 @@ entities = {
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
         "multi:description": {getmarc: ["500..a", "520..a"]},
         "multi:mentions": {get_subfield: "689"},
-        "multi:relatedEvent": {get_subfield: "711"}
+        "multi:relatedEvent": {get_subfield: "711"},
+        "single:extent": {getmarc: "300..a"},
+        "single:physical_details": {getmarc: "300..b"},
+        "single:dimensions": {getmarc: "300..c"},
+        "single:accompanying_material": {getmarc: "300..e"},
+        "single:reproduction_extent": {getmarc: "533..e"}
     },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
