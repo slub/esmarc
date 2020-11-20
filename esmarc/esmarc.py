@@ -1276,7 +1276,7 @@ entities = {
         "single:identifier": {getmarc: ["001"]},
         #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
         # for SLUB via katalogbeta
-        "single:offers": {getav_katalogbeta: ["924..b", "001"]},
+        "single:offers": {getav_katalogbeta: ["852..a", "001"]},
         "single:_isil": {getisil: ["003", "852..a", "924..b"]},
         "single:_ppn": {getmarc: "001"},
         "single:_sourceID": {getmarc: "980..b"},
