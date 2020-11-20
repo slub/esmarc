@@ -165,48 +165,6 @@ def uniq(lst):
         last = item
 
 
-def getiso8601(date):
-    """
-    Try to transform the parameter date into ISO-6801, but if it fails, return the original date to keep the information
-    """
-    p = re.compile(r'[\d|X].\.[\d|X].\.[\d|X]*')  # test if D(D).M(M).Y(YYY)
-    m = p.match(date)
-    datestring = ""
-    if m:
-        slices = list(reversed(date.split('.')))
-        if isint(slices[0]):
-            datestring += str(slices[0])
-        for slice in slices[1:]:
-            if isint(slice):
-                datestring += "-"+str(slice)
-            else:
-                break
-        return datestring
-    else:
-        return date  # was worth a try
-
-
-def dateToEvent(date, schemakey):
-    """
-    return birthDate and deathDate schema.org attributes
-
-    don't return deathDate if the person is still alive (determined if e.g. the date looks like "1979-")
-    """
-    if '-' in date:
-        dates = date.split('-')
-        if date[0] == '[' and date[-1] == ']':  # oh..
-            return str("["+dateToEvent(date[1:-1], schemakey)+"]")
-        if "irth" in schemakey:  # (date of d|D)eath(Dates)
-            return getiso8601(dates[0])
-        elif "eath" in schemakey:  # (date of d|D)eath(Date)
-            if len(dates) == 2:
-                return getiso8601(dates[1])
-            elif len(dates) == 1:
-                return None  # still alive! congrats
-        else:
-            return date
-
-
 def handlesex(record, key, entity):
     """
     return the determined sex (not gender), found in the MARC21 code
@@ -828,26 +786,30 @@ def getsameAs(jline, keys, entity):
     return sameAs
 
 
-def deathDate(jline, key, entity):
+def startDate(jline, key, entity):
     """
     calls marc_dates with the correct key for a date-mapping
     """
-    return marc_dates(jline.get(key), "deathDate")
+    return marc_dates(jline.get(key), entity, "startDate")
 
 
-def birthDate(jline, key, entity):
+def endDate(jline, key, entity):
     """
     calls marc_dates with the correct key for a date-mapping
 
     """
-    return marc_dates(jline.get(key), "birthDate")
+    return marc_dates(jline.get(key), entity, "endDate")
 
 
-def marc_dates(record, event):
+def marc_dates(record, entity, event):
     """
     builds the date nodes based on the data which is sanitzed by dateToEvent, gets called by the deathDate/birthDate functions
     """
-    recset = {}
+    date_map = {"persons": ["datx", "datl"],
+                "events": ["datv"]
+                }
+    dateType = None
+    date = None
     if record:
         for indicator_level in record:
             for subfield in indicator_level:
@@ -861,13 +823,56 @@ def marc_dates(record, event):
                 if isinstance(sset.get("4"), list):
                     for elem in sset.get("4"):
                         if elem.startswith("dat"):
-                            recset[elem] = sset.get("a")
-    if recset.get("datx"):
-        return dateToEvent(recset["datx"], event)
-    elif recset.get("datl"):
-        return dateToEvent(recset["datl"], event)
+                            dateType = elem
+                            date = sset.get("a")
+    if dateType in date_map[entity]:
+        return dateToEvent(date, event)
     else:
         return None
+
+
+def getiso8601(date):
+    """
+    Try to transform the parameter date into ISO-6801, but if it fails, return the original date to keep the information
+    """
+    p = re.compile(r'[\d|X].\.[\d|X].\.[\d|X]*')  # test if D(D).M(M).Y(YYY)
+    m = p.match(date)
+    datestring = ""
+    if m:
+        slices = list(reversed(date.split('.')))
+        if isint(slices[0]):
+            datestring += str(slices[0])
+        for slice in slices[1:]:
+            if isint(slice):
+                datestring += "-"+str(slice)
+            else:
+                break
+        return datestring
+    else:
+        return date  # was worth a try
+
+
+def dateToEvent(date, schemakey):
+    """
+    return birthDate and deathDate schema.org attributes
+
+    don't return deathDate if the person is still alive (determined if e.g. the date looks like "1979-")
+    """
+    if '-' in date:
+        dates = date.split('-')
+        if date[0] == '[' and date[-1] == ']':  # oh..
+            return str("["+dateToEvent(date[1:-1], schemakey)+"]")
+        if schemakey == "startDate":  # (start date)
+            return getiso8601(dates[0])
+        elif schemakey == "endDate":  # (end Date)
+            if len(dates) == 2:
+                return getiso8601(dates[1])
+            elif len(dates) == 1:
+                return None  # still alive! congrats
+        else:
+            return date
+    else:
+        return getiso8601(date)
 
 
 def getgeo(arr):
@@ -1271,7 +1276,7 @@ entities = {
         "single:identifier": {getmarc: ["001"]},
         #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
         # for SLUB via katalogbeta
-        "single:offers": {getav_katalogbeta: ["852..a", "001"]},
+        "single:offers": {getav_katalogbeta: ["924..b", "001"]},
         "single:_isil": {getisil: ["003", "852..a", "924..b"]},
         "single:_ppn": {getmarc: "001"},
         "single:_sourceID": {getmarc: "980..b"},
@@ -1355,8 +1360,8 @@ entities = {
         "single:workLocation": {get_subfield_if_4: "551^ortw"},
         "multi:honorificSuffix": {get_subfield_if_4: "550^adel"},
         "multi:honorificSuffix": {get_subfield_if_4: "550^akad"},
-        "single:birthDate": {birthDate: "548"},
-        "single:deathDate": {deathDate: "548"},
+        "single:birthDate": {startDate: "548"},
+        "single:deathDate": {endDate: "548"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },
     "organizations": {
@@ -1426,8 +1431,8 @@ entities = {
         "single:preferredName": {getName: ["111..a"]},
         "multi:alternateName": {getmarc: ["411..a"]},
         "single:location": {get_subfield_if_4: "551^ortv"},
-        "single:startDate": {birthDate: "548"},
-        "single:endDate": {deathDate: "548"},
+        "single:startDate": {startDate: "548"},
+        "single:endDate": {endDate: "548"},
         "single:adressRegion": {getmarc: "043..c"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },
