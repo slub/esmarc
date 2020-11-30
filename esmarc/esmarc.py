@@ -1047,7 +1047,7 @@ def get_physical(record, key, entity):
                 "accompanying_material": "300..e",
                 "reproduction_extent": "533..e"}
     data = {}
-    for key, marc_key in phys_map.items()
+    for key, marc_key in phys_map.items():
          value = getmarc(record, marc_key, entity)
          if value:
              data[key] = value
