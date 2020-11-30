@@ -1323,7 +1323,7 @@ entities = {
         "multi:description": {getmarc: ["500..a", "520..a"]},
         "multi:mentions": {get_subfield: "689"},
         "multi:relatedEvent": {get_subfield: "711"},
-        "single:physical_description": {get_physical: "300"}
+        "single:physical_description": {get_physical: ["300","533"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
