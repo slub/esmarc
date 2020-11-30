@@ -9,6 +9,7 @@
             "@container": "@language",
             "@id": "name"
         },
+       "physical_details: "dct:format",
        "extent": "dct:format",
        "physical_details": "dct:format",
        "dimensions": "dct:format",
