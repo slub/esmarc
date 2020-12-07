@@ -13,6 +13,8 @@ import copy
 import os.path
 import re
 import gzip
+import datetime
+import dateparser
 from es2json import esgenerator, esidfilegenerator, esfatgenerator, ArrayOrSingleValue, eprint, eprintjs, litter, isint
 from swb_fix import marc2relation, isil2sameAs, map_entities, map_types
 
@@ -790,7 +792,15 @@ def startDate(jline, key, entity):
     """
     calls marc_dates with the correct key for a date-mapping
     """
-    return marc_dates(jline.get(key), entity, "startDate")
+    extra_key = ""
+    if "^" in key:
+        key_split = key.split("^")
+        key = key_split[0]
+        if "," in key_split[1]:
+            extra_key = key_split[1].split(",")
+        else:
+            extra_key = key_split[1]
+    return marc_dates(jline.get(key), entity, "startDate", extra_key)
 
 
 def endDate(jline, key, entity):
@@ -798,58 +808,51 @@ def endDate(jline, key, entity):
     calls marc_dates with the correct key for a date-mapping
 
     """
-    return marc_dates(jline.get(key), entity, "endDate")
+    datekey_list = ""
+    if "^" in key:
+        key_split = key.split("^")
+        key = key_split[0]
+        if "," in key_split[1]:
+            datekey_list = key_split[1].split(",")
+        else:
+            datekey_list = key_split[1]
+    return marc_dates(jline.get(key), entity, "endDate", datekey_list)
 
 
-def marc_dates(record, entity, event):
+def marc_dates(record, entity, event, datekey_list):
     """
     builds the date nodes based on the data which is sanitzed by dateToEvent, gets called by the deathDate/birthDate functions
     """
-    date_map = {"persons": ["datx", "datl"],
-                "events": ["datv"]
-                }
-    dateType = None
-    date = None
+    dates = []
     if record:
         for indicator_level in record:
             for subfield in indicator_level:
                 sset = {}
                 for sf_elem in indicator_level.get(subfield):
                     for k, v in sf_elem.items():
-                        if k == "a" or k == "4":
-                            sset[k] = litter(sset.get(k), v)
-                if isinstance(sset.get("4"), str):
-                    sset["4"] = [sset.get("4")]
-                if isinstance(sset.get("4"), list):
-                    for elem in sset.get("4"):
-                        if elem.startswith("dat"):
-                            dateType = elem
-                            date = sset.get("a")
-    if dateType in date_map[entity]:
-        return dateToEvent(date, event)
-    else:
-        return None
-
-
-def getiso8601(date):
-    """
-    Try to transform the parameter date into ISO-6801, but if it fails, return the original date to keep the information
-    """
-    p = re.compile(r'[\d|X].\.[\d|X].\.[\d|X]*')  # test if D(D).M(M).Y(YYY)
-    m = p.match(date)
-    datestring = ""
-    if m:
-        slices = list(reversed(date.split('.')))
-        if isint(slices[0]):
-            datestring += str(slices[0])
-        for slice in slices[1:]:
-            if isint(slice):
-                datestring += "-"+str(slice)
+                        if k == "a" or k == "4" or k == 'i':
+                            sset[k] = litter(sset.get(k), ArrayOrSingleValue(v))
+                if '4' in sset and sset['4'] in datekey_list:
+                    dates.append(sset)
+    if dates:
+        exact_date_index = 0
+        for n, date in enumerate(dates):
+            if "exakt" in date['i'].lower():
+                exact_date_index = n
             else:
-                break
-        return datestring
-    else:
-        return date  # was worth a try
+                exact_date_index = 0
+        if dates and dates[exact_date_index]['4'] in datekey_list:
+            ret = {"@value": dateToEvent(dates[exact_date_index]['a'], event), "disambiguatingDescription": dates[exact_date_index]['i'], "description": dates[exact_date_index]['a']}
+            if ret.get("@value"):
+                return ret
+            elif ret.get("description"):
+                ret.pop("@value")
+                if "-" in ret["description"]:
+                    if event == "startDate" and ret["description"].split("-")[0]:
+                        return ret
+                    elif event == "endDate" and ret["description"].split("-")[1]:
+                        return ret
+    return None
 
 
 def dateToEvent(date, schemakey):
@@ -858,21 +861,102 @@ def dateToEvent(date, schemakey):
 
     don't return deathDate if the person is still alive (determined if e.g. the date looks like "1979-")
     """
+    date = ArrayOrSingleValue(date)
+    if not date:
+        return None
+    if isinstance(date, list):
+        ret = []
+        for item in date:
+            dateItem = dateToEvent(item, schemakey)
+            if dateItem:
+                ret.append(dateItem)
+    if "[" in date and "]" in date:
+        date = date.split("[")[1]
+        date = date.split("]")[0]
+    ddp = dateparser.date.DateDataParser()
+    parsedDate = None
+    strf_string = None
+    ddp_obj = None
     if '-' in date:
         dates = date.split('-')
-        if date[0] == '[' and date[-1] == ']':  # oh..
-            return str("["+dateToEvent(date[1:-1], schemakey)+"]")
         if schemakey == "startDate":  # (start date)
-            return getiso8601(dates[0])
+            ddp_obj = ddp.get_date_data(dates[0])
+            parsedDate = ddp_obj.date_obj
         elif schemakey == "endDate":  # (end Date)
-            if len(dates) == 2:
-                return getiso8601(dates[1])
+            if len(dates) == 2 and dates[1]:
+                ddp_obj = ddp.get_date_data(dates[1])
+                parsedDate = ddp_obj.date_obj
             elif len(dates) == 1:
                 return None  # still alive! congrats
-        else:
-            return date
     else:
-        return getiso8601(date)
+        date = date.lower()
+        ddp_obj = ddp.get_date_data(date)
+        parsedDate = ddp_obj.date_obj
+        # check if its not a date from the future and if the year has four digits
+    if parsedDate and int(parsedDate.strftime("%Y")) < int(datetime.datetime.today().strftime("%Y")) and len(parsedDate.strftime("%Y")) == 4:
+        strf_string = None
+        if ddp_obj.period == "year":
+            strf_string = "%Y"
+        elif ddp_obj.period == "month":
+            strf_string = "%Y-%m"
+        elif ddp_obj.period == "day":
+            strf_string = "%Y-%m-%d"
+        elif ddp_obj.period == "week":
+            strf_string = "%Y-%m"
+        elif ddp_obj.period == "time":
+            strf_string = "%Y-%m-%d"
+        return parsedDate.strftime(strf_string)
+
+
+def datePublished(jline, key, entity):
+    date = ArrayOrSingleValue(getmarc(jline, key, entity))
+    return handle_260(date)
+
+
+def handle_260(date):
+    """
+    parse the 264/260 field to a machine-readable format
+    """
+    if isinstance(date, list):
+        ret = []
+        for item in date:
+            dateItem = handle_260(item)
+            if dateItem:
+                ret.append(dateItem)
+        return ArrayOrSingleValue(ret)
+    if not date:
+        return None
+    if "[" in date and "]" in date:
+        date = date.split("[")[1]
+        date = date.split("]")[0]
+    if "-" in date:
+        ret = []
+        for item in date.split("-"):
+            dateItem = handle_260(item)
+            if dateItem:
+                ret.append(dateItem)
+        return ArrayOrSingleValue(ret)
+    else:
+        if isinstance(date, list):
+            date = date[0]
+        date = date.lower()
+        ddp = dateparser.date.DateDataParser()
+        ddp_obj = ddp.get_date_data(date)
+        parsedDate = ddp_obj.date_obj
+        if parsedDate and int(parsedDate.strftime("%Y")) < int(datetime.datetime.today().strftime("%Y")) and len(parsedDate.strftime("%Y")) == 4:
+            strf_string = None
+            if ddp_obj.period == "year":
+                strf_string = "%Y"
+            elif ddp_obj.period == "month":
+                strf_string = "%Y-%m"
+            elif ddp_obj.period == "day":
+                strf_string = "%Y-%m-%d"
+            elif ddp_obj.period == "week":
+                strf_string = "%Y-%m"
+            elif ddp_obj.period == "time":
+                strf_string = "%Y-%m-%d"
+            return {"@value": parsedDate.strftime(strf_string), "description": date}
+    return None
 
 
 def getgeo(arr):
@@ -1162,7 +1246,7 @@ def process_line(jline, host, port, index, type):
     if entity:
         mapline = {}
         for sortkey, val in entities[entity].items():
-            key = sortkey.split(":")[1]
+            key = sortkey.split(":")[1]  # sortkey.split(":")[0] is: single or multi, key is the rest
             value = ArrayOrSingleValue(process_field(jline, val, entity))
             if value:
                 if "related" in key and isinstance(value, dict) and "_key" in value:
@@ -1289,7 +1373,7 @@ entities = {
         "multi:author": {get_subfields: ["100", "110"]},
         "multi:contributor": {get_subfields: ["700", "710"]},
         "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
-        "single:datePublished": {getmarc: ["260..c", "264..c"]},
+        "single:datePublished": {datePublished: ["260..c", "264..c"]},
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:issn": {getmarc: ["022..a", "022..y", "022..z", "029..a", "490..x", "730..x", "773..x", "776..x", "780..x", "785..x", "800..x", "810..x", "811..x", "830..x"]},
         "multi:isbn": {getisbn: ["020..a", "022..a", "022..z", "776..z", "780..z", "785..z"]},
@@ -1338,7 +1422,9 @@ entities = {
         "single:issueNumber": {getmarc: "773..l"},
         "single:volumeNumer": {getmarc: "773..v"},
         "single:locationCreated": {get_subfield_if_4: "551^orth"},
-        "multi:relatedTo": {relatedTo: "500"}
+        "multi:relatedTo": {relatedTo: "500"},
+        "single:dateOfEstablishment": {startDate: "548^datb,dats"},
+        "single:dateOfTermination": {endDate: "548^datb,dats"}
     },
     "persons": {
         "single:@type": [URIRef(u'http://schema.org/Person')],
@@ -1359,9 +1445,11 @@ entities = {
         "single:workLocation": {get_subfield_if_4: "551^ortw"},
         "multi:honorificSuffix": {get_subfield_if_4: "550^adel"},
         "multi:honorificSuffix": {get_subfield_if_4: "550^akad"},
-        "single:birthDate": {startDate: "548"},
-        "single:deathDate": {endDate: "548"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
+        "single:periodOfActivityStart": {startDate: "548^datw,datz"},
+        "single:periodOfActivityEnd": {endDate: "548^datw,datz"},
+        "single:birthDate": {startDate: "548^datl,datx"},
+        "single:deathDate": {endDate: "548^datl,datx"},
     },
     "organizations": {
         "single:@type": [URIRef(u'http://schema.org/Organization')],
@@ -1381,6 +1469,8 @@ entities = {
         "single:fromLocation": {get_subfield_if_4: "551^geoa"},
         "single:areaServed": {get_subfield_if_4: "551^geow"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
+        "single:dateOfEstablishment": {startDate: "548^datb"},
+        "single:dateOfTermination": {endDate: "548^datb"}
     },
     "geo": {
         "single:@type": [URIRef(u'http://schema.org/Place')],
@@ -1397,6 +1487,8 @@ entities = {
         "single:geo": {getGeoCoordinates: {"longitude": ["034..d", "034..e"], "latitude": ["034..f", "034..g"]}},
         "single:adressRegion": {getmarc: "043..c"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
+        "single:dateOfEstablishment": {startDate: "548^datb,dats"},
+        "single:dateOfTermination": {endDate: "548^datb,dats"}
     },
     "topics": {
         "single:@type": [URIRef(u'http://schema.org/Thing')],
@@ -1417,6 +1509,8 @@ entities = {
         "multi:participant": {get_subfield_if_4: "551^bete"},
         "multi:relatedTo": {get_subfield_if_4: "551^vbal"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
+        "single:dateOfEstablishment": {startDate: "548^datb"},
+        "single:dateOfTermination": {endDate: "548^datb"}
     },
     "events": {
         "single:@type": [URIRef(u'http://schema.org/Event')],
@@ -1430,8 +1524,8 @@ entities = {
         "single:preferredName": {getName: ["111..a"]},
         "multi:alternateName": {getmarc: ["411..a"]},
         "single:location": {get_subfield_if_4: "551^ortv"},
-        "single:startDate": {startDate: "548"},
-        "single:endDate": {endDate: "548"},
+        "single:startDate": {startDate: "548^datv"},
+        "single:endDate": {endDate: "548^datv"},
         "single:adressRegion": {getmarc: "043..c"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },

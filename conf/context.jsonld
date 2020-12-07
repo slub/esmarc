@@ -7,6 +7,10 @@
         "name": {
             "@container": "@language",
             "@id": "name"
-        }
+        },
+	"dateOfTermination": "dnb:dateOfTermination",
+	"dateOfEstablishment": "dnb:dateOfEstablishment",
+	"periodOfActivityStart": "dnb:dateOfTermination",
+	"periodOfActivityEnd": "dnb:dateOfEstablishment"
     }
 }
