@@ -1,6 +1,6 @@
 {    "mappings": {
       "properties": {
-        "dateOfEstablishment": {
+        "startDate": {
           "properties": {
             "@value": {
               "type": "date"
@@ -25,7 +25,7 @@
             }
    	  }
         },
-        "dateOfTermination": {
+        "endDate": {
           "properties": {
             "@value": {
               "type": "date"
