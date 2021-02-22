@@ -13,7 +13,7 @@ import copy
 import os.path
 import re
 import gzip
-from es2json import esgenerator, esidfilegenerator, esfatgenerator, ArrayOrSingleValue, eprint, eprintjs, litter, isint
+from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
 from swb_fix import marc2relation, isil2sameAs, map_entities, map_types
 
 entities = None
@@ -49,7 +49,7 @@ def parse_cli_args():
     parser.add_argument('-pretty', action="store_true",
                         default=False, help="output tabbed json")
     parser.add_argument('-w', type=int, default=8,
-                        help="how many processes to use")
+                        help="how many processes to use, too many could overload the elasticsearch")
     parser.add_argument('-idfile', type=str,
                         help="path to a file with IDs to process")
     parser.add_argument('-query', type=str, default={},
@@ -67,84 +67,46 @@ def parse_cli_args():
 
 
 def main(elastic=None,
-        _type="",
-        _index="",
-        _id=None,
-        z=False,
-        prefix="ldj/",
-        debug=False,
-        w=8,
-        idfile='',
-        query={},
-        _base_id_src="http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN=",
-        _target_id="https://data.slub-dresden.de/"):
+         _type=None,
+         _index="",
+         _id=None,
+         z=False,
+         prefix="ldj/",
+         debug=False,
+         w=8,
+         idfile=None,
+         query={},
+         _base_id_src="http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN=",
+         _target_id="https://data.slub-dresden.de/"):
+    """
+    main function which can be called by other programs
+    """
     global base_id
     global target_id
     base_id = _base_id_src
     target_id = _target_id
-    print(elastic, _type, _index)
-    es = elastic
-    if es and _index and _type and _id:
-        json_record = None
-        source = get_source_include_str()
-        json_record = es.get_source(
-            index=_index, doc_type=_type, id=id, _source=source)
-        if json_record:
-            yield process_line(json_record, host, port, _index, _type)
-    elif es and _index and _type and idfile:
-        setupoutput(prefix)
-        pool = Pool(w, initializer=init_mp, initargs=(
-            host, port, prefix, z))
-        for ldj in esidfilegenerator(host=host,
-                                     port=port,
-                                     index=_index,
-                                     type=_type,
-                                     source=get_source_include_str(),
-                                     body=query,
-                                     idfile=idfile
-                                     ):
-            pool.apply_async(worker, args=(ldj,))
-        pool.close()
-        pool.join()
-    elif es and _index and _type and debug:
+    if elastic and _index and _type and (_id or debug):
         init_mp(host, port, prefix, z)
-        for ldj in esgenerator(host=host,
-                               port=port,
-                               index=_index,
-                               type=_type,
-                               source=get_source_include_str(),
-                               headless=True,
-                               body=query
-                               ):
-            record = process_line(
-                ldj, host, port, _index, _type)
-            if record:
-                for k in record:
-                    yield json.dumps(record[k])
-    elif es and _index and _type:  # if inf not set, than try elasticsearch
+        with ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, id_=_id, headless=True) as es2json_obj:
+            for ldj in es2json_obj.generator():
+                record = process_line(ldj, host, port, _index, _type)
+                if record:
+                    for k in record:
+                        yield record[k]
+    elif elastic and _index and _type:
         setupoutput(prefix)
-        pool = Pool(w, initializer=init_mp, initargs=(
-            host, port, prefix, z))
-        for ldj in esfatgenerator(host=host,
-                                  port=port,
-                                  index=_index,
-                                  type=_type,
-                                  source=get_source_include_str(),
-                                  body=query
-                                  ):
+        pool = Pool(w, initializer=init_mp, initargs=(host, port, prefix, z))
+        if idfile:
+            es2json_obj = IDFile(es=elastic, index=_index, type_=_type, includes = get_source_include_str(), body=query, idfile=idfile)
+        else:
+            es2json_obj = ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query)
+        for ldj in es2json_obj.generator():
             pool.apply_async(worker, args=(ldj,))
         pool.close()
         pool.join()
-    else:  # oh noes, no elasticsearch input-setup. then we'll use stdin
-        eprint("No host/port/index specified, trying stdin\n")
-        init_mp("localhost", "DEBUG", "DEBUG", "DEBUG")
-        with io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8') as input_stream:
-            for line in input_stream:
-                ret = process_line(json.loads(
-                    line), "localhost", 9200, "data", "mrc")
-                if isinstance(ret, dict):
-                    for k, v in ret.items():
-                        yield v
+    else:  # oh noes, no elasticsearch input-setup. exiting.
+        eprint("No -host/-port/-index or -server specified, exiting\n")
+        exit(-1)
 
 
 def uniq(lst):
@@ -901,7 +863,7 @@ def getav_katalog(record, key, entity):
     produce a link to the katalogbeta for availability information
     """
     retOffers = list()
-    finc_id = "0-"+getmarc(record, key[1], entity)
+    finc_id = "0-" + getmarc(record, "001", entity)
     branchCode = getmarc(record, key[0], entity)
     if finc_id and isinstance(branchCode, str) and branchCode == "DE-14":
         branchCode = [branchCode]
@@ -1121,9 +1083,8 @@ def get_source_include_str():
         # eprint(k,v)
         if isinstance(v, str) and isint(v[:3]) and v not in items:
             items.add(v[:3])
-    _source = ",".join(items)
     # eprint(_source)
-    return _source
+    return list(items)
 
 
 def process_field(record, value, entity):
@@ -1448,12 +1409,13 @@ if __name__ == "__main__":
                 id = slashsplit[5].rsplit("?")[0]
             else:
                 id = slashsplit[5]
+        else:
+            id = None
     if args.pretty:
         tabbing = 4
     else:
         tabbing = None
     if host and port:
         elastic = elasticsearch.Elasticsearch([{"host": host}], port=port)
-    print(dict(**((vars(args)))))
     for record in main(_index=_index, _type=_type, _id=id, _base_id_src=args.base_id_src, debug=args.debug, _target_id=args.target_id, z=args.z, elastic=elastic, query=args.query, idfile=args.idfile, prefix=args.prefix):
-        print(json.dumps(record))
+        print(json.dumps(record, indent=tabbing))
