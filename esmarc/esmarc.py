@@ -92,7 +92,7 @@ def main(elastic=None,
                 record = process_line(ldj, host, port, _index, _type)
                 if record:
                     for k in record:
-                        yield record[k]
+                        print(json.dumps(record[k]))
     elif elastic and _index and _type:
         setupoutput(prefix)
         pool = Pool(w, initializer=init_mp, initargs=(host, port, prefix, z))
@@ -1417,5 +1417,4 @@ if __name__ == "__main__":
         tabbing = None
     if host and port:
         elastic = elasticsearch.Elasticsearch([{"host": host}], port=port)
-    for record in main(_index=_index, _type=_type, _id=id, _base_id_src=args.base_id_src, debug=args.debug, _target_id=args.target_id, z=args.z, elastic=elastic, query=args.query, idfile=args.idfile, prefix=args.prefix):
-        print(json.dumps(record, indent=tabbing))
+    main(_index=_index, _type=_type, _id=id, _base_id_src=args.base_id_src, debug=args.debug, _target_id=args.target_id, z=args.z, elastic=elastic, query=args.query, idfile=args.idfile, prefix=args.prefix)
