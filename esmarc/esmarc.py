@@ -1403,19 +1403,13 @@ if __name__ == "__main__":
         _index = args.server.split("/")[3]
         if len(slashsplit) > 4:
             _type = slashsplit[4]
+            id = None
         elif len(slashsplit) > 5:
-            if "?pretty" in args.server:
-                pretty = True
-                id = slashsplit[5].rsplit("?")[0]
-            else:
-                id = slashsplit[5]
+            _type = slashsplit[4]
+            id = slashsplit[5]
         else:
             _type = None
             id = None
-    if args.pretty:
-        tabbing = 4
-    else:
-        tabbing = None
     if host and port:
         elastic = elasticsearch.Elasticsearch([{"host": host}], port=port)
     main(_index=_index, _type=_type, _id=id, _base_id_src=args.base_id_src, debug=args.debug, _target_id=args.target_id, z=args.z, elastic=elastic, query=args.query, idfile=args.idfile, prefix=args.prefix)
