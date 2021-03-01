@@ -5,10 +5,8 @@ import traceback
 from multiprocessing import Pool, current_process
 import elasticsearch
 import json
-#import urllib.request
 import argparse
 import sys
-import io
 import copy
 import os.path
 import re
@@ -85,7 +83,7 @@ def main(elastic=None,
     global target_id
     base_id = _base_id_src
     target_id = _target_id
-    if elastic and _index  and (_id or debug):
+    if elastic and _index and (_id or debug):
         init_mp(host, port, prefix, z)
         with ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, id_=_id, headless=True) as es2json_obj:
             for ldj in es2json_obj.generator():
@@ -97,7 +95,7 @@ def main(elastic=None,
         setupoutput(prefix)
         pool = Pool(w, initializer=init_mp, initargs=(host, port, prefix, z))
         if idfile:
-            es2json_obj = IDFile(es=elastic, index=_index, type_=_type, includes = get_source_include_str(), body=query, idfile=idfile)
+            es2json_obj = IDFile(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, idfile=idfile)
         else:
             es2json_obj = ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query)
         for ldj in es2json_obj.generator():
@@ -317,7 +315,7 @@ def getmarcvalues(record, regex, entity):
     else:
         record = record.get(regex[:3])
         """
-        beware! hardcoded traverse algorithm for marcXchange record encoded data !!! 
+        beware! hardcoded traverse algorithm for marcXchange record encoded data !!!
         temporary workaround: http://www.smart-jokes.org/programmers-say-vs-what-they-mean.html
         """
         # = [{'__': [{'a': 'g'}, {'b': 'n'}, {'c': 'i'}, {'q': 'f'}]}]
@@ -441,7 +439,7 @@ def relatedTo(jline, key, entity):
                     node["name"] = sset.get("t")
                     entityType = "works"
                 if isinstance(sset.get("9"), str) and sset.get("9") in marc2relation:
-                    node["_key"] = marc2relation[sset["9"]]    
+                    node["_key"] = marc2relation[sset["9"]]
                     if sset.get("0"):
                         uri = gnd2uri(sset.get("0"))
                         if isinstance(uri, str) and uri.startswith(base_id):
@@ -715,7 +713,7 @@ def getsameAs(jline, keys, entity):
             data = [data]
         if isinstance(data, list):
             for elem in data:
-                if not "DE-576" in elem:  # ignore old SWB id for root SameAs
+                if "DE-576" not in elem:  # ignore old SWB id for root SameAs
                     data = gnd2uri(elem)
                     if data and isinstance(data, str):
                         data = [data]
@@ -839,8 +837,6 @@ def getgeo(arr):
         if isinstance(v, str):
             if '.' in v:
                 return v
-
-            #key : {"longitude":["034..d","034..e"],"latitude":["034..f","034..g"]}
 
 
 def getGeoCoordinates(record, key, entity):
@@ -1208,7 +1204,7 @@ def worker(ldj):
                         with opener(name, "at") as out:
                             print(json.dumps(
                                 target_record[entity], indent=None), file=out)
-    except Exception as e:
+    except Exception:
         with open("errors.txt", 'a') as f:
             traceback.print_exc(file=f)
 
@@ -1312,8 +1308,7 @@ entities = {
         "single:birthPlace": {get_subfield_if_4: "551^ortg"},
         "single:deathPlace": {get_subfield_if_4: "551^orts"},
         "single:workLocation": {get_subfield_if_4: "551^ortw"},
-        "multi:honorificSuffix": {get_subfield_if_4: "550^adel"},
-        "multi:honorificSuffix": {get_subfield_if_4: "550^akad"},
+        "multi:honorificSuffix": [{get_subfield_if_4: "550^adel"}, {get_subfield_if_4: "550^akad"}],
         "single:birthDate": {startDate: "548"},
         "single:deathDate": {endDate: "548"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
