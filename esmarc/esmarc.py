@@ -796,9 +796,21 @@ def getsameAs(jline, keys, entity):
     """
     sameAs = []
     for key in keys:
-        data = getmarc(jline, key, entity)
+        if key == "016..a":
+            for indicator_level in jline["016"]:
+                for subfield in indicator_level:
+                    sset = {}
+                    for sf_elem in indicator_level.get(subfield):
+                        for k, v in sf_elem.items():
+                            if k == "a" or k == "2":
+                                sset[k] = litter(sset.get(k), v)
+                    if sset["2"] == "DE-101":
+                        data = "({}){}".format(sset["2"],sset["a"])
+        else:
+            data = getmarc(jline, key, entity)
         if isinstance(data, str):
             data = [data]
+        eprint(data)
         if isinstance(data, list):
             for elem in data:
                 if not "DE-576" in elem:  # ignore old SWB id for root SameAs
@@ -1276,7 +1288,7 @@ entities = {
         "single:_ppn": {getmarc: "001"},
         "single:_sourceID": {getmarc: "980..b"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["016..a", "035..a", "670..u"]},
         "single:preferredName": {getName: ["245..a", "245..b"]},
         "single:nameShort": {getAlternateNames: "245..a"},
         "single:nameSub": {getAlternateNames: "245..b"},

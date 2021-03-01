@@ -9,6 +9,8 @@ isil2sameAs = {
     "(DE-601)": "http://gso.gbv.de/PPN?PPN=",
     "DE-15": "Univeristätsbibliothek Leipzig",
     "DE-14": "Sächsische Landesbibliothek – Staats- und Universitätsbibliothek Dresden",
+    "DE-101": "https://d-nb.info/",
+    "(DE-101)": "https://d-nb.info/"
 }
 
 
