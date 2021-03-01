@@ -983,7 +983,7 @@ def handle_preferredName_topic(record, key, entity):
     elif name_dict.get("150..a") and name_dict.get("150..x") and not name_dict.get("150..g"):
         return "{a} / {x}".format(a=name_dict["150..a"], x=name_dict["150..x"])
     elif name_dict.get("150..a") and name_dict.get("150..x") and name_dict.get("150..g"):
-        return "{a} / {x} ({g}".format(a=name_dict["150..a"], x=name_dict["150..x"], g=name_dict["150..g"])
+        return "{a} / {x} ({g})".format(a=name_dict["150..a"], x=name_dict["150..x"], g=name_dict["150..g"])
     else:
         return None
 
