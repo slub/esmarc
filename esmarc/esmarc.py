@@ -93,7 +93,7 @@ def main(elastic=None,
                 if record:
                     for k in record:
                         print(json.dumps(record[k]))
-    elif elastic and _index:
+    elif elastic and _index and not _id:
         setupoutput(prefix)
         pool = Pool(w, initializer=init_mp, initargs=(host, port, prefix, z))
         if idfile:
@@ -1404,7 +1404,7 @@ if __name__ == "__main__":
         if len(slashsplit) > 4:
             _type = slashsplit[4]
             id = None
-        elif len(slashsplit) > 5:
+        if len(slashsplit) > 5:
             _type = slashsplit[4]
             id = slashsplit[5]
         else:
