@@ -52,7 +52,7 @@ def parse_cli_args():
                         help="how many processes to use, too many could overload the elasticsearch")
     parser.add_argument('-idfile', type=str,
                         help="path to a file with IDs to process")
-    parser.add_argument('-query', type=str, default={},
+    parser.add_argument('-query', type=json.loads, default={},
                         help='prefilter the data based on an elasticsearch-query')
     parser.add_argument('-base_id_src', type=str, default="http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN=",
                         help="set up which base_id to use for sameAs. e.g. https://d-nb.info/gnd/xxx")
@@ -67,8 +67,8 @@ def parse_cli_args():
 
 
 def main(elastic=None,
-         _type=None,
          _index="",
+         _type="_doc",
          _id=None,
          z=False,
          prefix="ldj/",
@@ -85,15 +85,15 @@ def main(elastic=None,
     global target_id
     base_id = _base_id_src
     target_id = _target_id
-    if elastic and _index and _type and (_id or debug):
+    if elastic and _index  and (_id or debug):
         init_mp(host, port, prefix, z)
         with ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, id_=_id, headless=True) as es2json_obj:
             for ldj in es2json_obj.generator():
-                record = process_line(ldj, host, port, _index, _type)
+                record = process_line(ldj, host, port, _index)
                 if record:
                     for k in record:
                         print(json.dumps(record[k]))
-    elif elastic and _index and _type:
+    elif elastic and _index:
         setupoutput(prefix)
         pool = Pool(w, initializer=init_mp, initargs=(host, port, prefix, z))
         if idfile:
@@ -1109,7 +1109,7 @@ def process_field(record, value, entity):
 
 
 # processing a single line of json without whitespace
-def process_line(jline, host, port, index, type):
+def process_line(jline, host, port, index):
     """
     process a record according to the mapping, calls process_field for every field and adds some context,
     """
@@ -1195,7 +1195,7 @@ def worker(ldj):
         if isinstance(ldj, list):    # list of records
             for source_record in ldj:
                 target_record = process_line(source_record.pop(
-                    "_source"), host, port, source_record.pop("_index"), source_record.pop("_type"))
+                    "_source"), host, port, source_record.pop("_index"))
                 if target_record:
                     for entity in target_record:
                         name = prefix+entity+"/" + \
@@ -1403,13 +1403,14 @@ if __name__ == "__main__":
         _index = args.server.split("/")[3]
         if len(slashsplit) > 4:
             _type = slashsplit[4]
-        if len(slashsplit) > 5:
+        elif len(slashsplit) > 5:
             if "?pretty" in args.server:
                 pretty = True
                 id = slashsplit[5].rsplit("?")[0]
             else:
                 id = slashsplit[5]
         else:
+            _type = None
             id = None
     if args.pretty:
         tabbing = 4
