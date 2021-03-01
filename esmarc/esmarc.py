@@ -85,12 +85,15 @@ def main(elastic=None,
     target_id = _target_id
     if elastic and _index and (_id or debug):
         init_mp(host, port, prefix, z)
-        with ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, id_=_id, headless=True) as es2json_obj:
-            for ldj in es2json_obj.generator():
-                record = process_line(ldj, host, port, _index)
-                if record:
-                    for k in record:
-                        print(json.dumps(record[k]))
+        if idfile:
+            es2json_obj = IDFile(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, idfile=idfile, headless=True)
+        else:
+            es2json_obj = ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, id_=_id, headless=True)
+        for ldj in es2json_obj.generator():
+            record = process_line(ldj, host, port, _index)
+            if record:
+                for k in record:
+                    print(json.dumps(record[k]))
     elif elastic and _index and not _id:
         setupoutput(prefix)
         pool = Pool(w, initializer=init_mp, initargs=(host, port, prefix, z))
