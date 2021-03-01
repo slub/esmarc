@@ -1308,7 +1308,7 @@ entities = {
         "single:birthPlace": {get_subfield_if_4: "551^ortg"},
         "single:deathPlace": {get_subfield_if_4: "551^orts"},
         "single:workLocation": {get_subfield_if_4: "551^ortw"},
-        "multi:honorificSuffix": [{get_subfield_if_4: "550^adel"}, {get_subfield_if_4: "550^akad"}],
+        "multi:honorificPrefix": [{get_subfield_if_4: "550^adel"}, {get_subfield_if_4: "550^akad"}],
         "single:birthDate": {startDate: "548"},
         "single:deathDate": {endDate: "548"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
