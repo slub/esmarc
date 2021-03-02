@@ -969,6 +969,22 @@ def getAlternateNames(record, key, entity):
     return data if data else None
 
 
+def handle_preferredName_topic(record, key, entity):
+    name_dict = {}
+    for k in key:
+        name_dict[k] = getmarc(record, k, entity)
+    if name_dict.get("150..a") and not name_dict.get("150..g") and not name_dict.get("150..x"):
+        return name_dict["150..a"]
+    elif name_dict.get("150..a") and name_dict.get("150..g") and not name_dict.get("150..x"):
+        return "{a} ({g})".format(a=name_dict["150..a"], g=name_dict["150..g"])
+    elif name_dict.get("150..a") and name_dict.get("150..x") and not name_dict.get("150..g"):
+        return "{a} / {x}".format(a=name_dict["150..a"], x=name_dict["150..x"])
+    elif name_dict.get("150..a") and name_dict.get("150..x") and name_dict.get("150..g"):
+        return "{a} / {x} ({g}".format(a=name_dict["150..a"], x=name_dict["150..x"], g=name_dict["150..g"])
+    else:
+        return None
+
+
 def getpublisher(record, key, entity):
     """
     get the publish name and the publish place from two different fields to produce a node out of it
@@ -1352,7 +1368,7 @@ entities = {
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
-        "single:preferredName": {getName: "150..a"},
+        "single:preferredName": {handle_preferredName_topic: ["150..a", "150..g", "150..x"]},
         "multi:alternateName": {getmarc: "450..a+x"},
         "single:description": {getmarc: "679..a"},
         "multi:additionalType": {get_subfield: "550"},
