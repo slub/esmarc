@@ -84,19 +84,16 @@ def main(elastic=None,
     base_id = _base_id_src
     target_id = _target_id
     if elastic and _index and (_id or debug):
-        init_mp(host, port, prefix, z)
-        if idfile:
-            es2json_obj = IDFile(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, idfile=idfile, headless=True)
-        else:
-            es2json_obj = ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, id_=_id, headless=True)
-        for ldj in es2json_obj.generator():
-            record = process_line(ldj, host, port, _index)
-            if record:
-                for k in record:
-                    print(json.dumps(record[k]))
+        init_mp(prefix, z)
+        with ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, id_=_id, headless=True) as es2json_obj:
+            for ldj in es2json_obj.generator():
+                record = process_line(ldj, _index)
+                if record:
+                    for k in record:
+                        print(json.dumps(record[k]))
     elif elastic and _index and not _id:
         setupoutput(prefix)
-        pool = Pool(w, initializer=init_mp, initargs=(host, port, prefix, z))
+        pool = Pool(w, initializer=init_mp, initargs=(prefix, z))
         if idfile:
             es2json_obj = IDFile(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, idfile=idfile)
         else:
@@ -1124,7 +1121,7 @@ def process_field(record, value, entity):
 
 
 # processing a single line of json without whitespace
-def process_line(jline, host, port, index):
+def process_line(jline, index):
     """
     process a record according to the mapping, calls process_field for every field and adds some context,
     """
@@ -1181,12 +1178,10 @@ def setupoutput(prefix):
             os.mkdir(prefix+entity)
 
 
-def init_mp(h, p, pr, z):
+def init_mp(pr, z):
     """
     initialize the multiprocessing environment for every worker
     """
-    global host
-    global port
     global prefix
     global comp
     if not pr:
@@ -1196,8 +1191,6 @@ def init_mp(h, p, pr, z):
     else:
         prefix = pr
     comp = z
-    port = p
-    host = h
 
 
 def worker(ldj):
@@ -1210,7 +1203,7 @@ def worker(ldj):
         if isinstance(ldj, list):    # list of records
             for source_record in ldj:
                 target_record = process_line(source_record.pop(
-                    "_source"), host, port, source_record.pop("_index"))
+                    "_source"), source_record.pop("_index"))
                 if target_record:
                     for entity in target_record:
                         name = prefix+entity+"/" + \
@@ -1406,7 +1399,7 @@ entities = {
     },
 }
 
-if __name__ == "__main__":
+def cli():
     args = parse_cli_args()
     es_kwargs = {}                              # dict to collect kwargs for ESgenerator
     if args.server:
@@ -1427,3 +1420,7 @@ if __name__ == "__main__":
     if host and port:
         elastic = elasticsearch.Elasticsearch([{"host": host}], port=port)
     main(_index=_index, _type=_type, _id=id, _base_id_src=args.base_id_src, debug=args.debug, _target_id=args.target_id, z=args.z, elastic=elastic, query=args.query, idfile=args.idfile, prefix=args.prefix)
+
+
+if __name__ == "__main__":
+    cli()

@@ -44,7 +44,7 @@ setup(name='esmarc',
       python_requires=">=3.5.*",
       entry_points={
           "console_scripts": [
-              "esmarc=esmarc.esmarc:main",
+              "esmarc=esmarc.esmarc:cli",
               "wikidata.py=enrichment.wikidata:run",
               "wikipedia.py=enrichment.wikipedia:run",
               "wikipedia_categories.py=enrichment.wikipedia_categories:run",
