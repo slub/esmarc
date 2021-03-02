@@ -973,18 +973,17 @@ def getAlternateNames(record, key, entity):
 
 
 def handle_preferredName_topic(record, key, entity):
-    name_dict = {}
     preferredName = ""
     if record.get(key):
         for indicator_level in record[key]:
             for subfield in indicator_level:
                 for sf_elem in indicator_level.get(subfield):
                     for k, v in sf_elem.items():
-                        if k == "a":
-                            preferredName += v
-                        elif k=="x":
+                        if k == "a":  # is always single valued  https://swbtools.bsz-bw.de/cgi-bin/help.pl?cmd=kat&val=150
+                            preferredName = v
+                        elif k=="x":  # repeatable
                             preferredName += " / {}".format(v)
-                        elif k=="g":
+                        elif k=="g":  # repeatable
                             preferredName += " ({})".format(v)
     if preferredName:
         return preferredName
