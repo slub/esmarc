@@ -99,7 +99,7 @@ def main(elastic=None,
         else:
             es2json_obj = ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query)
         for ldj in es2json_obj.generator():
-            pool.apply_async(worker, args=(ldj,))
+            pool.apply_async(worker, args=(ldj, _index,))
         pool.close()
         pool.join()
     else:  # oh noes, no elasticsearch input-setup. exiting.
@@ -1193,7 +1193,7 @@ def init_mp(pr, z):
     comp = z
 
 
-def worker(ldj):
+def worker(ldj, index):
     """
     worker function for multiprocessing
     """
@@ -1203,7 +1203,7 @@ def worker(ldj):
         if isinstance(ldj, list):    # list of records
             for source_record in ldj:
                 target_record = process_line(source_record.pop(
-                    "_source"), source_record.pop("_index"))
+                    "_source"), index)
                 if target_record:
                     for entity in target_record:
                         name = prefix+entity+"/" + \
