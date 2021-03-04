@@ -10,7 +10,9 @@ isil2sameAs = {
     "DE-15": "Univeristätsbibliothek Leipzig",
     "DE-14": "Sächsische Landesbibliothek – Staats- und Universitätsbibliothek Dresden",
     "DE-101": "https://d-nb.info/",
-    "(DE-101)": "https://d-nb.info/"
+    "(DE-101)": "https://d-nb.info/",
+    "DE-600": "https://ld.zdb-services.de/resource/",
+    "(DE-600)": "https://ld.zdb-services.de/resource/"
 }
 
 

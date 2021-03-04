@@ -813,21 +813,25 @@ def getsameAs(jline, keys, entity):
         eprint(data)
         if isinstance(data, list):
             for elem in data:
-                if not "DE-576" in elem:  # ignore old SWB id for root SameAs
-                    data = gnd2uri(elem)
-                    if data and isinstance(data, str):
-                        data = [data]
-                    if isinstance(data, list):
-                        for elem in data:
-                            if elem and elem.startswith("http"):
-                                sameAs.append({"@id": elem,
-                                               "publisher": {
-                                                   "@id": "data.slub-dresden.de", },
-                                               "isBasedOn": {
-                                                   "@type": "Dataset",
-                                                   "@id": "",
-                                               }
-                                               })
+                if "DE-576" in elem:  # ignore old SWB id for root SameAs
+                    continue
+                if "DE-600" in elem and not any("DE-101" in x for x in data):
+                    continue
+                uris = gnd2uri(elem)
+                if uris and isinstance(uris, str):
+                    uris = [uris]
+                if isinstance(uris, list):
+                    for uri in uris:
+                        if uri and uri.startswith("http"):
+                            sameAs.append({"@id": uri,
+                                           "publisher": {
+                                               "@id": "data.slub-dresden.de", },
+                                           "isBasedOn": {
+                                               "@type": "Dataset",
+                                               "@id": "",
+                                           }
+                                           })
+
     for n, item in enumerate(sameAs):
         if "d-nb.info" in item["@id"]:
             sameAs[n]["publisher"]["preferredName"] = "Deutsche Nationalbibliothek"
@@ -837,6 +841,10 @@ def getsameAs(jline, keys, entity):
             sameAs[n]["publisher"]["preferredName"] = "K10Plus"
             sameAs[n]["publisher"]["@id"] = "https://data.slub-dresden.de/organizations/103302212"
             sameAs[n]["publisher"]["abbr"] = "KXP"
+        elif "ld.zdb-services.de" in item["@id"]:
+            sameAs[n]["publisher"]["preferredName"] = "Zeitschriftendatenbank"
+            sameAs[n]["publisher"]["@id"] = "http://d-nb.info/gnd/4190620-2"
+            sameAs[n]["publisher"]["abbr"] = "ZDB"
     return sameAs
 
 
@@ -1324,6 +1332,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
         "single:preferredName": {getName: ["100..t", "110..t", "130..t", "111..t", "130..a"]},
@@ -1354,6 +1363,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
@@ -1377,6 +1387,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
@@ -1396,6 +1407,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
@@ -1412,6 +1424,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
         "single:preferredName": {getName: "150..a"},
@@ -1432,6 +1445,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
