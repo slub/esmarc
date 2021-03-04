@@ -795,8 +795,9 @@ def getsameAs(jline, keys, entity):
     produces sameAs information out of the record
     """
     sameAs = []
+    raw_data = set()
     for key in keys:
-        if key == "016..a":
+        if key == "016..a" and "016" in jline:
             for indicator_level in jline["016"]:
                 for subfield in indicator_level:
                     sset = {}
@@ -804,33 +805,34 @@ def getsameAs(jline, keys, entity):
                         for k, v in sf_elem.items():
                             if k == "a" or k == "2":
                                 sset[k] = litter(sset.get(k), v)
-                    if sset["2"] == "DE-101":
-                        data = "({}){}".format(sset["2"],sset["a"])
+                    if sset.get("2") and sset.get("a"):
+                        raw_data.add("({}){}".format(sset["2"],sset["a"]))
         else:
             data = getmarc(jline, key, entity)
-        if isinstance(data, str):
-            data = [data]
-        eprint(data)
-        if isinstance(data, list):
-            for elem in data:
-                if "DE-576" in elem:  # ignore old SWB id for root SameAs
-                    continue
-                if "DE-600" in elem and not any("DE-101" in x for x in data):
-                    continue
-                uris = gnd2uri(elem)
-                if uris and isinstance(uris, str):
-                    uris = [uris]
-                if isinstance(uris, list):
-                    for uri in uris:
-                        if uri and uri.startswith("http"):
-                            sameAs.append({"@id": uri,
-                                           "publisher": {
-                                               "@id": "data.slub-dresden.de", },
-                                           "isBasedOn": {
-                                               "@type": "Dataset",
-                                               "@id": "",
-                                           }
-                                           })
+            if isinstance(data, str):
+                raw_data.add(data)
+            elif isinstance(data,list):
+                for elem in data:
+                    raw_data.add(elem)
+    for elem in raw_data:
+        if "DE-576" in elem:  # ignore old SWB id for root SameAs
+            continue
+        if "DE-600" in elem and not any("DE-101" in x for x in raw_data):
+            continue
+        uris = gnd2uri(elem)
+        if uris and isinstance(uris, str):
+            uris = [uris]
+        if isinstance(uris, list):
+            for uri in uris:
+                if uri and uri.startswith("http") and (not sameAs or any(uri not in x["@id"] for x in sameAs)):
+                    sameAs.append({"@id": uri,
+                                    "publisher": {
+                                        "@id": "data.slub-dresden.de", },
+                                    "isBasedOn": {
+                                        "@type": "Dataset",
+                                        "@id": "",
+                                    }
+                                    })
 
     for n, item in enumerate(sameAs):
         if "d-nb.info" in item["@id"]:
@@ -846,6 +848,21 @@ def getsameAs(jline, keys, entity):
             sameAs[n]["publisher"]["@id"] = "http://d-nb.info/gnd/4190620-2"
             sameAs[n]["publisher"]["abbr"] = "ZDB"
     return sameAs
+
+def handle_identifier(jline, key, entity):
+    ids = []
+    data = getmarc(jline, key, entity)
+    for _id in data:
+        id_obj = {"@type": "PropertyValue"}
+        id_obj["propertyID"] = _id[1:7]
+        id_obj["value"] = _id[8:]
+        if "DE-627" in id_obj["propertyID"]:
+            id_obj["name"] = "K10Plus-ID"
+            ids.append(id_obj)
+        elif "DE-576" in id_obj["propertyID"]:
+            id_obj["name"] = "SWB-ID"
+            ids.append(id_obj)
+    return ids
 
 
 def deathDate(jline, key, entity):
@@ -1288,7 +1305,7 @@ entities = {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: ["001"]},
+        "multi:identifier": {handle_identifier: ["035..a"]},
         #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
         # for SLUB via katalogbeta
         "single:offers": {getav_katalogbeta: ["852..a", "001"]},
