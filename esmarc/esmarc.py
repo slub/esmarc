@@ -1010,6 +1010,24 @@ def getpublisher(record, key, entity):
         return data
 
 
+def get_physical(record, key, entity):
+    """
+    get physical description according to SLUB JIRA Ticket DMG-1040
+    """
+    phys_map = {"extent": "300..a",
+                "physical_details": "300..b",
+                "dimensions": "300..c",
+                "accompanying_material": "300..e",
+                "reproduction_extent": "533..e"}
+    data = {}
+    for key, marc_key in phys_map.items():
+         value = getmarc(record, marc_key, entity)
+         if value:
+             data[key] = value
+    if data:
+        return data
+
+     
 def single_or_multi(ldj, entity):
     """
     make Fields single or multi valued according to spec 
@@ -1272,8 +1290,9 @@ entities = {
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
         "multi:description": {getmarc: ["500..a", "520..a"]},
         "multi:mentions": {get_subfield: "689"},
-        "multi:relatedEvent": {get_subfield: "711"}
-    },
+        "multi:relatedEvent": {get_subfield: "711"},
+        "single:physical_description": {get_physical: ["300","533"]}
+        },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
