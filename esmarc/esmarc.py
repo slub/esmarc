@@ -3,6 +3,7 @@
 from rdflib import URIRef
 import traceback
 from multiprocessing import Pool, current_process
+from esmarc import entities
 import elasticsearch
 import json
 import argparse
