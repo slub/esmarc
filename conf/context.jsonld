@@ -3,14 +3,23 @@
         "@vocab": "http://schema.org/",
         "foaf": "http://xmlns.com/foaf/0.1/",
         "dnb": "https://d-nb.info/standards/elementset/gnd#",
+	"dct": "http://purl.org/dc/terms/",
         "preferredName": "dnb:preferredName",
         "name": {
             "@container": "@language",
             "@id": "name"
         },
+<<<<<<< HEAD
 	"dateOfTermination": "dnb:dateOfTermination",
 	"dateOfEstablishment": "dnb:dateOfEstablishment",
 	"periodOfActivityStart": "dnb:dateOfTermination",
 	"periodOfActivityEnd": "dnb:dateOfEstablishment"
+=======
+       "physical_details: "dct:format",
+       "extent": "dct:format",
+       "dimensions": "dct:format",
+       "accompanying_material": "dct:format",
+       "reproduction_extent": "dct:format"
+>>>>>>> lod-review
     }
 }

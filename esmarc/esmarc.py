@@ -3,22 +3,20 @@
 from rdflib import URIRef
 import traceback
 from multiprocessing import Pool, current_process
+from esmarc import entities
 import elasticsearch
 import json
-#import urllib.request
 import argparse
 import sys
-import io
 import copy
 import os.path
 import re
 import gzip
 import datetime
 import dateparser
-from es2json import esgenerator, esidfilegenerator, esfatgenerator, ArrayOrSingleValue, eprint, eprintjs, litter, isint
+from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
 from swb_fix import marc2relation, isil2sameAs, map_entities, map_types
 
-es = None
 entities = None
 base_id = None
 target_id = None
@@ -26,7 +24,7 @@ base_id_delimiter = "="
 # lookup_es=None
 
 
-def main():
+def parse_cli_args():
     """
     Argument Parsing for cli
     """
@@ -52,10 +50,10 @@ def main():
     parser.add_argument('-pretty', action="store_true",
                         default=False, help="output tabbed json")
     parser.add_argument('-w', type=int, default=8,
-                        help="how many processes to use")
+                        help="how many processes to use, too many could overload the elasticsearch")
     parser.add_argument('-idfile', type=str,
                         help="path to a file with IDs to process")
-    parser.add_argument('-query', type=str, default={},
+    parser.add_argument('-query', type=json.loads, default={},
                         help='prefilter the data based on an elasticsearch-query')
     parser.add_argument('-base_id_src', type=str, default="http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN=",
                         help="set up which base_id to use for sameAs. e.g. https://d-nb.info/gnd/xxx")
@@ -66,93 +64,50 @@ def main():
     if args.help:
         parser.print_help(sys.stderr)
         exit()
-    if args.server:
-        slashsplit = args.server.split("/")
-        args.host = slashsplit[2].rsplit(":")[0]
-        if isint(args.server.split(":")[2].rsplit("/")[0]):
-            args.port = args.server.split(":")[2].split("/")[0]
-        args.index = args.server.split("/")[3]
-        if len(slashsplit) > 4:
-            args.type = slashsplit[4]
-        if len(slashsplit) > 5:
-            if "?pretty" in args.server:
-                args.pretty = True
-                args.id = slashsplit[5].rsplit("?")[0]
-            else:
-                args.id = slashsplit[5]
-    if args.server or (args.host and args.port):
-        es = elasticsearch.Elasticsearch([{"host": args.host}], port=args.port)
+    return args
+
+
+def main(elastic=None,
+         _index="",
+         _type="_doc",
+         _id=None,
+         z=False,
+         prefix="ldj/",
+         debug=False,
+         w=8,
+         idfile=None,
+         query={},
+         _base_id_src="http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN=",
+         _target_id="https://data.slub-dresden.de/"):
+    """
+    main function which can be called by other programs
+    """
     global base_id
     global target_id
-    base_id = args.base_id_src
-    target_id = args.target_id
-    if args.pretty:
-        tabbing = 4
-    else:
-        tabbing = None
-
-    if args.host and args.index and args.type and args.id:
-        json_record = None
-        source = get_source_include_str()
-        json_record = es.get_source(
-            index=args.index, doc_type=args.type, id=args.id, _source=source)
-        if json_record:
-            print(json.dumps(process_line(json_record, args.host,
-                                          args.port, args.index, args.type), indent=tabbing))
-    elif args.host and args.index and args.type and args.idfile:
-        setupoutput(args.prefix)
-        pool = Pool(args.w, initializer=init_mp, initargs=(
-            args.host, args.port, args.prefix, args.z))
-        for ldj in esidfilegenerator(host=args.host,
-                                     port=args.port,
-                                     index=args.index,
-                                     type=args.type,
-                                     source=get_source_include_str(),
-                                     body=args.query,
-                                     idfile=args.idfile
-                                     ):
-            pool.apply_async(worker, args=(ldj,))
+    base_id = _base_id_src
+    target_id = _target_id
+    if elastic and _index and (_id or debug):
+        init_mp(prefix, z)
+        with ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, id_=_id, headless=True) as es2json_obj:
+            for ldj in es2json_obj.generator():
+                record = process_line(ldj, _index)
+                if record:
+                    for k in record:
+                        print(json.dumps(record[k]))
+    elif elastic and _index and not _id:
+        setupoutput(prefix)
+        pool = Pool(w, initializer=init_mp, initargs=(prefix, z))
+        if idfile:
+            es2json_obj = IDFile(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query, idfile=idfile)
+        else:
+            es2json_obj = ESGenerator(es=elastic, index=_index, type_=_type, includes=get_source_include_str(), body=query)
+        for ldj in es2json_obj.generator():
+            pool.apply_async(worker, args=(ldj, _index,))
         pool.close()
         pool.join()
-    elif args.host and args.index and args.type and args.debug:
-        init_mp(args.host, args.port, args.prefix, args.z)
-        for ldj in esgenerator(host=args.host,
-                               port=args.port,
-                               index=args.index,
-                               type=args.type,
-                               source=get_source_include_str(),
-                               headless=True,
-                               body=args.query
-                               ):
-            record = process_line(
-                ldj, args.host, args.port, args.index, args.type)
-            if record:
-                for k in record:
-                    print(json.dumps(record[k], indent=None))
-    elif args.host and args.index and args.type:  # if inf not set, than try elasticsearch
-        setupoutput(args.prefix)
-        pool = Pool(args.w, initializer=init_mp, initargs=(
-            args.host, args.port, args.prefix, args.z))
-        for ldj in esfatgenerator(host=args.host,
-                                  port=args.port,
-                                  index=args.index,
-                                  type=args.type,
-                                  source=get_source_include_str(),
-                                  body=args.query
-                                  ):
-            pool.apply_async(worker, args=(ldj,))
-        pool.close()
-        pool.join()
-    else:  # oh noes, no elasticsearch input-setup. then we'll use stdin
-        eprint("No host/port/index specified, trying stdin\n")
-        init_mp("localhost", "DEBUG", "DEBUG", "DEBUG")
-        with io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8') as input_stream:
-            for line in input_stream:
-                ret = process_line(json.loads(
-                    line), "localhost", 9200, "data", "mrc")
-                if isinstance(ret, dict):
-                    for k, v in ret.items():
-                        print(json.dumps(v, indent=tabbing))
+    else:  # oh noes, no elasticsearch input-setup. exiting.
+        eprint("No -host/-port/-index or -server specified, exiting\n")
+        exit(-1)
 
 
 def uniq(lst):
@@ -363,7 +318,7 @@ def getmarcvalues(record, regex, entity):
     else:
         record = record.get(regex[:3])
         """
-        beware! hardcoded traverse algorithm for marcXchange record encoded data !!! 
+        beware! hardcoded traverse algorithm for marcXchange record encoded data !!!
         temporary workaround: http://www.smart-jokes.org/programmers-say-vs-what-they-mean.html
         """
         # = [{'__': [{'a': 'g'}, {'b': 'n'}, {'c': 'i'}, {'q': 'f'}]}]
@@ -405,13 +360,7 @@ def handle_about(jline, key, entity):
                 ret.append(handle_single_ddc(data))
         elif k == "655":
             data = get_subfield(jline, k, entity)
-            if isinstance(data, dict):
-                data = [data]
-            if isinstance(data, list):
-                for elem in data:
-                    if elem.get("identifier"):
-                        elem["value"] = elem.pop("identifier")
-                    ret.append({"identifier": elem})
+            ret.append(data)
     if len(ret) > 0:
         return ret
     else:
@@ -487,7 +436,7 @@ def relatedTo(jline, key, entity):
                     node["name"] = sset.get("t")
                     entityType = "works"
                 if isinstance(sset.get("9"), str) and sset.get("9") in marc2relation:
-                    node["_key"] = marc2relation[sset["9"]]    
+                    node["_key"] = marc2relation[sset["9"]]
                     if sset.get("0"):
                         uri = gnd2uri(sset.get("0"))
                         if isinstance(uri, str) and uri.startswith(base_id):
@@ -761,7 +710,7 @@ def getsameAs(jline, keys, entity):
             data = [data]
         if isinstance(data, list):
             for elem in data:
-                if not "DE-576" in elem:  # ignore old SWB id for root SameAs
+                if "DE-576" not in elem:  # ignore old SWB id for root SameAs
                     data = gnd2uri(elem)
                     if data and isinstance(data, str):
                         data = [data]
@@ -968,8 +917,6 @@ def getgeo(arr):
             if '.' in v:
                 return v
 
-            #key : {"longitude":["034..d","034..e"],"latitude":["034..f","034..g"]}
-
 
 def getGeoCoordinates(record, key, entity):
     """
@@ -991,11 +938,12 @@ def getav_katalog(record, key, entity):
     produce a link to the katalogbeta for availability information
     """
     retOffers = list()
-    finc_id = "0-"+getmarc(record, key[1], entity)
+    swb_ppn = getmarc(record, key[1], entity)
     branchCode = getmarc(record, key[0], entity)
-    if finc_id and isinstance(branchCode, str) and branchCode == "DE-14":
+    # eprint(branchCode,finc_id)
+    if swb_ppn and isinstance(branchCode, str) and branchCode == "DE-14":
         branchCode = [branchCode]
-    if finc_id and isinstance(branchCode, list):
+    if swb_ppn and isinstance(branchCode, list):
         for bc in branchCode:
             if bc == "DE-14":
                 retOffers.append({
@@ -1006,7 +954,7 @@ def getav_katalog(record, key, entity):
                         "name": isil2sameAs.get(bc),
                         "branchCode": "DE-14"
                     },
-                    "availability": "https://katalogbeta.slub-dresden.de/id/"+finc_id
+                    "availability": "https://katalog.slub-dresden.de/id/0-{}".format(swb_ppn)
                 })
     if retOffers:
         return retOffers
@@ -1101,6 +1049,22 @@ def getAlternateNames(record, key, entity):
     return data if data else None
 
 
+def handle_preferredName_topic(record, key, entity):
+    name_dict = {}
+    for k in key:
+        name_dict[k] = getmarc(record, k, entity)
+    if name_dict.get("150..a") and not name_dict.get("150..g") and not name_dict.get("150..x"):
+        return name_dict["150..a"]
+    elif name_dict.get("150..a") and name_dict.get("150..g") and not name_dict.get("150..x"):
+        return "{a} ({g})".format(a=name_dict["150..a"], g=name_dict["150..g"])
+    elif name_dict.get("150..a") and name_dict.get("150..x") and not name_dict.get("150..g"):
+        return "{a} / {x}".format(a=name_dict["150..a"], x=name_dict["150..x"])
+    elif name_dict.get("150..a") and name_dict.get("150..x") and name_dict.get("150..g"):
+        return "{a} / {x} ({g}".format(a=name_dict["150..a"], x=name_dict["150..x"], g=name_dict["150..g"])
+    else:
+        return None
+
+
 def getpublisher(record, key, entity):
     """
     get the publish name and the publish place from two different fields to produce a node out of it
@@ -1125,6 +1089,24 @@ def getpublisher(record, key, entity):
         return data
 
 
+def get_physical(record, key, entity):
+    """
+    get physical description according to SLUB JIRA Ticket DMG-1040
+    """
+    phys_map = {"extent": "300..a",
+                "physical_details": "300..b",
+                "dimensions": "300..c",
+                "accompanying_material": "300..e",
+                "reproduction_extent": "533..e"}
+    data = {}
+    for key, marc_key in phys_map.items():
+         value = getmarc(record, marc_key, entity)
+         if value:
+             data[key] = value
+    if data:
+        return data
+
+     
 def single_or_multi(ldj, entity):
     """
     make Fields single or multi valued according to spec 
@@ -1211,9 +1193,8 @@ def get_source_include_str():
         # eprint(k,v)
         if isinstance(v, str) and isint(v[:3]) and v not in items:
             items.add(v[:3])
-    _source = ",".join(items)
     # eprint(_source)
-    return _source
+    return list(items)
 
 
 def process_field(record, value, entity):
@@ -1238,7 +1219,7 @@ def process_field(record, value, entity):
 
 
 # processing a single line of json without whitespace
-def process_line(jline, host, port, index, type):
+def process_line(jline, index):
     """
     process a record according to the mapping, calls process_field for every field and adds some context,
     """
@@ -1295,12 +1276,10 @@ def setupoutput(prefix):
             os.mkdir(prefix+entity)
 
 
-def init_mp(h, p, pr, z):
+def init_mp(pr, z):
     """
     initialize the multiprocessing environment for every worker
     """
-    global host
-    global port
     global prefix
     global comp
     if not pr:
@@ -1310,11 +1289,9 @@ def init_mp(h, p, pr, z):
     else:
         prefix = pr
     comp = z
-    port = p
-    host = h
 
 
-def worker(ldj):
+def worker(ldj, index):
     """
     worker function for multiprocessing
     """
@@ -1324,7 +1301,7 @@ def worker(ldj):
         if isinstance(ldj, list):    # list of records
             for source_record in ldj:
                 target_record = process_line(source_record.pop(
-                    "_source"), host, port, source_record.pop("_index"), source_record.pop("_type"))
+                    "_source"), index)
                 if target_record:
                     for entity in target_record:
                         name = prefix+entity+"/" + \
@@ -1337,7 +1314,7 @@ def worker(ldj):
                         with opener(name, "at") as out:
                             print(json.dumps(
                                 target_record[entity], indent=None), file=out)
-    except Exception as e:
+    except Exception:
         with open("errors.txt", 'a') as f:
             traceback.print_exc(file=f)
 
@@ -1392,8 +1369,9 @@ entities = {
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
         "multi:description": {getmarc: ["500..a", "520..a"]},
         "multi:mentions": {get_subfield: "689"},
-        "multi:relatedEvent": {get_subfield: "711"}
-    },
+        "multi:relatedEvent": {get_subfield: "711"},
+        "single:physical_description": {get_physical: ["300","533"]}
+        },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
@@ -1443,8 +1421,9 @@ entities = {
         "single:birthPlace": {get_subfield_if_4: "551^ortg"},
         "single:deathPlace": {get_subfield_if_4: "551^orts"},
         "single:workLocation": {get_subfield_if_4: "551^ortw"},
-        "multi:honorificSuffix": {get_subfield_if_4: "550^adel"},
-        "multi:honorificSuffix": {get_subfield_if_4: "550^akad"},
+        "multi:honorificPrefix": [{get_subfield_if_4: "550^adel"}, {get_subfield_if_4: "550^akad"}],
+        "single:birthDate": {startDate: "548"},
+        "single:deathDate": {endDate: "548"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
         "single:periodOfActivityStart": {startDate: "548^datw,datz"},
         "single:periodOfActivityEnd": {endDate: "548^datw,datz"},
@@ -1498,7 +1477,7 @@ entities = {
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
-        "single:preferredName": {getName: "150..a"},
+        "single:preferredName": {handle_preferredName_topic: ["150..a", "150..g", "150..x"]},
         "multi:alternateName": {getmarc: "450..a+x"},
         "single:description": {getmarc: "679..a"},
         "multi:additionalType": {get_subfield: "550"},
@@ -1531,5 +1510,28 @@ entities = {
     },
 }
 
+def cli():
+    args = parse_cli_args()
+    es_kwargs = {}                              # dict to collect kwargs for ESgenerator
+    if args.server:
+        slashsplit = args.server.split("/")
+        host = slashsplit[2].rsplit(":")[0]
+        if isint(args.server.split(":")[2].rsplit("/")[0]):
+            port = args.server.split(":")[2].split("/")[0]
+        _index = args.server.split("/")[3]
+        if len(slashsplit) > 4:
+            _type = slashsplit[4]
+            id = None
+        if len(slashsplit) > 5:
+            _type = slashsplit[4]
+            id = slashsplit[5]
+        else:
+            _type = None
+            id = None
+    if host and port:
+        elastic = elasticsearch.Elasticsearch([{"host": host}], port=port)
+    main(_index=_index, _type=_type, _id=id, _base_id_src=args.base_id_src, debug=args.debug, _target_id=args.target_id, z=args.z, elastic=elastic, query=args.query, idfile=args.idfile, prefix=args.prefix)
+
+
 if __name__ == "__main__":
-    main()
+    cli()
