@@ -3,7 +3,6 @@
 from rdflib import URIRef
 import traceback
 from multiprocessing import Pool, current_process
-from esmarc import entities
 import elasticsearch
 import json
 import argparse
@@ -858,9 +857,27 @@ def dateToEvent(date, schemakey):
 
 
 def datePublished(jline, key, entity):
-    date = ArrayOrSingleValue(getmarc(jline, key, entity))
-    return handle_260(date)
+    fivethreethree = getmarc(jline, "533.__.d", entity)
+    twosixfour = getmarc(jline, "264.*.c", entity)
+    fivethreefour = getmarc(jline, "534.__.c", entity)
+    zerozeroeight = getmarc(jline, "008", entity)
+    if fivethreethree:
+        return handle_260(fivethreethree)
+    elif not fivethreethree and twosixfour:
+        return handle_260(twosixfour)
+    if not fivethreethree and not twosixfour and fivethreefour:
+        return handle_260(zerozeroeight[7:11])
+    
 
+def dateOriginalPublished(jline, key, entity):
+    fivethreethree = getmarc(jline, "533.__.d", entity)
+    twosixfour = getmarc(jline, "264.*.c", entity)
+    fivethreefour = getmarc(jline, "534.__.c", entity)
+    if fivethreethree:
+        return handle_260(twosixfour)
+    if fivethreefour:
+        return handle_260(fivethreefour)
+    
 
 def handle_260(date):
     """
@@ -875,9 +892,6 @@ def handle_260(date):
         return ArrayOrSingleValue(ret)
     if not date:
         return None
-    if "[" in date and "]" in date:
-        date = date.split("[")[1]
-        date = date.split("]")[0]
     if "-" in date:
         ret = []
         for item in date.split("-"):
@@ -886,11 +900,14 @@ def handle_260(date):
                 ret.append(dateItem)
         return ArrayOrSingleValue(ret)
     else:
-        if isinstance(date, list):
-            date = date[0]
-        date = date.lower()
+        toParsedDate = date
+        if isinstance(toParsedDate, list):
+            toParsedDate = toParsedDate[0]
+        if "[" in date and "]" in date:
+            toParsedDate = toParsedDate.split("[")[1]
+            toParsedDate = toParsedDate.split("]")[0]
         ddp = dateparser.date.DateDataParser()
-        ddp_obj = ddp.get_date_data(date)
+        ddp_obj = ddp.get_date_data(toParsedDate.lower())
         parsedDate = ddp_obj.date_obj
         if parsedDate and int(parsedDate.strftime("%Y")) < int(datetime.datetime.today().strftime("%Y")) and len(parsedDate.strftime("%Y")) == 4:
             strf_string = None
@@ -904,7 +921,9 @@ def handle_260(date):
                 strf_string = "%Y-%m"
             elif ddp_obj.period == "time":
                 strf_string = "%Y-%m-%d"
-            return {"@value": parsedDate.strftime(strf_string), "description": date}
+            return {"dateParsed": parsedDate.strftime(strf_string), "dateOrigin": date}
+        elif not parsedDate:
+            return {"dateOrigin": date}
     return None
 
 
@@ -1159,6 +1178,21 @@ def getdateModified(record, key, entity):
         return newdate
 
 
+def handle_dateCreated(record, key, entity):
+    """
+    get the dateCreated field from the Marcrecord
+    """
+    date = getmarc(record,key, entity)
+    YY = int(date[0:2])
+    MM = int(date[2:4])
+    DD = int(date[4:6])
+    ## check if Year is a 19XX record
+    if YY > int(datetime.datetime.now().date().strftime("%y")):
+        return "19{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
+    else:
+        return "20{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
+
+
 def traverse(dict_or_list, path):
     """
     iterate through a python dict or list, yield all the values
@@ -1334,6 +1368,7 @@ entities = {
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: ["001"]},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
         # for SLUB via katalogbeta
         "single:offers": {getav_katalog: ["924..b", "001"]},
@@ -1350,7 +1385,8 @@ entities = {
         "multi:author": {get_subfields: ["100", "110"]},
         "multi:contributor": {get_subfields: ["700", "710"]},
         "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
-        "single:datePublished": {datePublished: ["260..c", "264..c"]},
+        "single:datePublished": {datePublished: ["008", "533", "534", "264"]},
+        "single:dateOriginalPublished": {dateOriginalPublished: ["008", "533", "534", "264"]},
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:issn": {getmarc: ["022..a", "022..y", "022..z", "029..a", "490..x", "730..x", "773..x", "776..x", "780..x", "785..x", "800..x", "810..x", "811..x", "830..x"]},
         "multi:isbn": {getisbn: ["020..a", "022..a", "022..z", "776..z", "780..z", "785..z"]},
@@ -1377,6 +1413,7 @@ entities = {
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1409,6 +1446,7 @@ entities = {
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1437,6 +1475,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
         "single:preferredName": {getName: "110..a+b"},
@@ -1458,6 +1497,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
         "single:preferredName": {getName: "151..a"},
@@ -1476,6 +1516,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
         "single:preferredName": {handle_preferredName_topic: ["150..a", "150..g", "150..x"]},
         "multi:alternateName": {getmarc: "450..a+x"},
@@ -1498,6 +1539,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
         "single:preferredName": {getName: ["111..a"]},
