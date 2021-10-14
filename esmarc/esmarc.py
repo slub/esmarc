@@ -879,6 +879,29 @@ def dateOriginalPublished(jline, key, entity):
         return handle_260(fivethreefour)
     
 
+def parseDate(toParsedDate):
+    if isinstance(toParsedDate, list):
+        toParsedDate = toParsedDate[0]
+    if "[" in toParsedDate and "]" in toParsedDate:
+        toParsedDate = toParsedDate.split("[")[1]
+        toParsedDate = toParsedDate.split("]")[0]
+    ddp = dateparser.date.DateDataParser()
+    ddp_obj = ddp.get_date_data(toParsedDate.lower())
+    parsedDate = ddp_obj.date_obj
+    if parsedDate and int(parsedDate.strftime("%Y")) < int(datetime.datetime.today().strftime("%Y")) and len(parsedDate.strftime("%Y")) == 4:
+        strf_string = None
+        if ddp_obj.period == "year":
+            strf_string = "%Y"
+        elif ddp_obj.period == "month":
+            strf_string = "%Y-%m"
+        elif ddp_obj.period == "day":
+            strf_string = "%Y-%m-%d"
+        elif ddp_obj.period == "week":
+            strf_string = "%Y-%m"
+        elif ddp_obj.period == "time":
+            strf_string = "%Y-%m-%d"
+        return parsedDate.strftime(strf_string)
+
 def handle_260(date):
     """
     parse the 264/260 field to a machine-readable format
@@ -892,39 +915,22 @@ def handle_260(date):
         return ArrayOrSingleValue(ret)
     if not date:
         return None
+    retObj = {"dateOrigin": date}
     if "-" in date:
-        ret = []
-        for item in date.split("-"):
-            dateItem = handle_260(item)
-            if dateItem:
-                ret.append(dateItem)
-        return ArrayOrSingleValue(ret)
+        dateSplitField = date.split("-")
+        if dateSplitField[0]:
+            dateParsedEarliest = parseDate(dateSplitField[0])
+            if dateParsedEarliest:
+                retObj["dateParsedEarliest"] = dateParsedEarliest
+        if dateSplitField[1]:
+            dateParsedLatest = parseDate(dateSplitField[1])
+            if dateParsedLatest:
+                retObj["dateParsedLatest"] = dateParsedLatest
     else:
-        toParsedDate = date
-        if isinstance(toParsedDate, list):
-            toParsedDate = toParsedDate[0]
-        if "[" in date and "]" in date:
-            toParsedDate = toParsedDate.split("[")[1]
-            toParsedDate = toParsedDate.split("]")[0]
-        ddp = dateparser.date.DateDataParser()
-        ddp_obj = ddp.get_date_data(toParsedDate.lower())
-        parsedDate = ddp_obj.date_obj
-        if parsedDate and int(parsedDate.strftime("%Y")) < int(datetime.datetime.today().strftime("%Y")) and len(parsedDate.strftime("%Y")) == 4:
-            strf_string = None
-            if ddp_obj.period == "year":
-                strf_string = "%Y"
-            elif ddp_obj.period == "month":
-                strf_string = "%Y-%m"
-            elif ddp_obj.period == "day":
-                strf_string = "%Y-%m-%d"
-            elif ddp_obj.period == "week":
-                strf_string = "%Y-%m"
-            elif ddp_obj.period == "time":
-                strf_string = "%Y-%m-%d"
-            return {"dateParsed": parsedDate.strftime(strf_string), "dateOrigin": date}
-        elif not parsedDate:
-            return {"dateOrigin": date}
-    return None
+        parsedDate = parseDate(date)
+        if parsedDate:
+            retObj["dateParsed"] = parsedDate
+    return retObj if retObj["dateOrigin"] else None
 
 
 def getgeo(arr):
