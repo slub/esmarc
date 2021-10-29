@@ -966,19 +966,20 @@ def getAlternateNames(record, key, entity):
 
 
 def handle_preferredName_topic(record, key, entity):
-    name_dict = {}
-    for k in key:
-        name_dict[k] = getmarc(record, k, entity)
-    if name_dict.get("150..a") and not name_dict.get("150..g") and not name_dict.get("150..x"):
-        return name_dict["150..a"]
-    elif name_dict.get("150..a") and name_dict.get("150..g") and not name_dict.get("150..x"):
-        return "{a} ({g})".format(a=name_dict["150..a"], g=name_dict["150..g"])
-    elif name_dict.get("150..a") and name_dict.get("150..x") and not name_dict.get("150..g"):
-        return "{a} / {x}".format(a=name_dict["150..a"], x=name_dict["150..x"])
-    elif name_dict.get("150..a") and name_dict.get("150..x") and name_dict.get("150..g"):
-        return "{a} / {x} ({g}".format(a=name_dict["150..a"], x=name_dict["150..x"], g=name_dict["150..g"])
-    else:
-        return None
+    preferredName = ""
+    if record.get(key):
+        for indicator_level in record[key]:
+            for subfield in indicator_level:
+                for sf_elem in indicator_level.get(subfield):
+                    for k, v in sf_elem.items():
+                        if k == "a":  # is always single valued  https://swbtools.bsz-bw.de/cgi-bin/help.pl?cmd=kat&val=150
+                            preferredName = v
+                        elif k=="x":  # repeatable
+                            preferredName += " / {}".format(v)
+                        elif k=="g":  # repeatable
+                            preferredName += " ({})".format(v)
+    if preferredName:
+        return preferredName
 
 
 def getpublisher(record, key, entity):
@@ -1383,7 +1384,7 @@ entities = {
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
-        "single:preferredName": {handle_preferredName_topic: ["150..a", "150..g", "150..x"]},
+        "single:preferredName": {handle_preferredName_topic: "150"},
         "multi:alternateName": {getmarc: "450..a+x"},
         "single:description": {getmarc: "679..a"},
         "multi:additionalType": {get_subfield: "550"},
