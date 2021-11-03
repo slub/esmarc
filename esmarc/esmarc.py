@@ -14,7 +14,7 @@ import gzip
 import datetime
 import dateparser
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from swb_fix import marc2relation, isil2sameAs, map_entities, map_types
+from swb_fix import marc2relation, isil2sameAs, map_entities, map_types, rolemapping_en
 
 entities = None
 base_id = None
@@ -1200,6 +1200,68 @@ def handle_dateCreated(record, key, entity):
         return "20{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
 
 
+def handle_contributor(record, keys, entity):
+    retObj = []
+    for key in keys:
+        if key in record:
+            for elem in record.get(key):
+                for indent in elem:
+                    sset = {}
+                    for subfield in elem[indent]:
+                        for k, v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    order = None
+                    ret = {}
+                    ret["@type"] = "Role"
+                    ret["contributor"] = [{}]
+                    if (key == "110" and not sset.get("c")) or (key == "710" and not sset.get("t")):
+                        ret["contributor"][0]["@type"] = "Organization"
+                        ret["contributor"][0]["@id"] = "https://data.slub-dresden.de/organizations/"
+                        order = ['a','b','g']
+                    elif (key == "110" and sset.get("c")) or (key == "711" and not sset.get("t")) or (key == "111"):
+                        ret["contributor"][0]["@type"] = "Event"
+                        ret["contributor"][0]["@id"] = "https://data.slub-dresden.de/events/"
+                        ret["contributor"][0]["name"] = ""
+                        order = ['a','n','d','c','e','g']
+                    elif key == "100" or key == "700":
+                        ret["contributor"][0]["@type"] = "Person"
+                        ret["contributor"][0]["@id"] = "https://data.slub-dresden.de/persons/"
+                        ret["contributor"][0]["name"] = ""
+                        if sset.get("a"):
+                            ret["contributor"][0]["name"] += sset["a"]
+                        if sset.get("b"):
+                            ret["contributor"][0]["name"] += " " +sset["b"]
+                        if sset.get("c"):
+                            ret["contributor"][0]["name"] += ", " +sset["c"]
+                    if sset.get("0"):
+                        if isinstance(sset["0"],str):
+                            sset["0"] = [sset["0"]]
+                        if isinstance(sset["0"],list):
+                            for item in sset["0"]:
+                                if item.startswith("DE-627"):
+                                    ret["contributor"][0]["@id"] = ret["contributor"][0]["@id"] + item.split(")")[1]
+                                if item.startswith("DE-588"):
+                                    ret["contributor"][0]["sameAs"] = "https://d-nb.info/gnd/" + item.split(")")[1]
+                    if order:
+                        name = ""
+                        for char in order:
+                            if char in sset:
+                                name += sset[char] + ", "
+                        ret["contributor"][0]["name"] = name[:-2]
+                    if "4" in sset:
+                        if isinstance(sset["4"],str):
+                            ret["@id"] = "https://id.loc.gov/vocabulary/relators/{}".format(sset["4"])
+                            ret["name"] = rolemapping_en[sset["4"]]
+                        elif isinstance(sset["4"],list):
+                            ret["@id"] = []
+                            ret["name"] = []
+                            for role in sset["4"]:
+                                ret["@id"].append("https://id.loc.gov/vocabulary/relators/{}".format(role))
+                                ret["name"].append(rolemapping_en[role])
+                    retObj.append(ret)
+    return retObj if retObj else None
+
+
 def traverse(dict_or_list, path):
     """
     iterate through a python dict or list, yield all the values
@@ -1390,7 +1452,7 @@ entities = {
         "single:alternativeHeadline": {getAlternateNames: ["245..c"]},
         "multi:alternateName": {getAlternateNames: ["240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
         "multi:author": {get_subfields: ["100", "110"]},
-        "multi:contributor": {get_subfields: ["700", "710"]},
+        "multi:contributor":  {handle_contributor: ["100", "110", "700", "710", "711"]},
         "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
         "single:datePublished": {datePublished: ["008", "533", "534", "264"]},
         "single:dateOriginalPublished": {dateOriginalPublished: ["008", "533", "534", "264"]},
