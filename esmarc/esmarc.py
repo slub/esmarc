@@ -1238,9 +1238,9 @@ def handle_contributor(record, keys, entity):
                             sset["0"] = [sset["0"]]
                         if isinstance(sset["0"],list):
                             for item in sset["0"]:
-                                if item.startswith("DE-627"):
+                                if item.startswith("(DE-627)"):
                                     ret["contributor"][0]["@id"] = ret["contributor"][0]["@id"] + item.split(")")[1]
-                                if item.startswith("DE-588"):
+                                if item.startswith("(DE-588)"):
                                     ret["contributor"][0]["sameAs"] = "https://d-nb.info/gnd/" + item.split(")")[1]
                     if order:
                         name = ""
