@@ -1,0 +1,30 @@
+{    "mappings": {
+      "properties": {
+        "datePublished": {
+          "properties": {
+            "@value": {
+              "type": "date"
+              },
+            "description": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "disambiguatingDescription": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            }
+	  }
+        }
+    }
+  }
+}

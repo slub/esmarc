@@ -11,8 +11,10 @@ import copy
 import os.path
 import re
 import gzip
+import datetime
+import dateparser
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from swb_fix import marc2relation, isil2sameAs, map_entities, map_types
+from esmarc.swb_fix import marc2relation, isil2sameAs, map_entities, map_types
 
 entities = None
 base_id = None
@@ -357,13 +359,7 @@ def handle_about(jline, key, entity):
                 ret.append(handle_single_ddc(data))
         elif k == "655":
             data = get_subfield(jline, k, entity)
-            if isinstance(data, dict):
-                data = [data]
-            if isinstance(data, list):
-                for elem in data:
-                    if elem.get("identifier"):
-                        elem["value"] = elem.pop("identifier")
-                    ret.append({"identifier": elem})
+            ret.append(data)
     if len(ret) > 0:
         return ret
     else:
@@ -744,7 +740,15 @@ def startDate(jline, key, entity):
     """
     calls marc_dates with the correct key for a date-mapping
     """
-    return marc_dates(jline.get(key), entity, "startDate")
+    extra_key = ""
+    if "^" in key:
+        key_split = key.split("^")
+        key = key_split[0]
+        if "," in key_split[1]:
+            extra_key = key_split[1].split(",")
+        else:
+            extra_key = key_split[1]
+    return marc_dates(jline.get(key), entity, "startDate", extra_key)
 
 
 def endDate(jline, key, entity):
@@ -752,58 +756,51 @@ def endDate(jline, key, entity):
     calls marc_dates with the correct key for a date-mapping
 
     """
-    return marc_dates(jline.get(key), entity, "endDate")
+    datekey_list = ""
+    if "^" in key:
+        key_split = key.split("^")
+        key = key_split[0]
+        if "," in key_split[1]:
+            datekey_list = key_split[1].split(",")
+        else:
+            datekey_list = key_split[1]
+    return marc_dates(jline.get(key), entity, "endDate", datekey_list)
 
 
-def marc_dates(record, entity, event):
+def marc_dates(record, entity, event, datekey_list):
     """
     builds the date nodes based on the data which is sanitzed by dateToEvent, gets called by the deathDate/birthDate functions
     """
-    date_map = {"persons": ["datx", "datl"],
-                "events": ["datv"]
-                }
-    dateType = None
-    date = None
+    dates = []
     if record:
         for indicator_level in record:
             for subfield in indicator_level:
                 sset = {}
                 for sf_elem in indicator_level.get(subfield):
                     for k, v in sf_elem.items():
-                        if k == "a" or k == "4":
-                            sset[k] = litter(sset.get(k), v)
-                if isinstance(sset.get("4"), str):
-                    sset["4"] = [sset.get("4")]
-                if isinstance(sset.get("4"), list):
-                    for elem in sset.get("4"):
-                        if elem.startswith("dat"):
-                            dateType = elem
-                            date = sset.get("a")
-    if dateType in date_map[entity]:
-        return dateToEvent(date, event)
-    else:
-        return None
-
-
-def getiso8601(date):
-    """
-    Try to transform the parameter date into ISO-6801, but if it fails, return the original date to keep the information
-    """
-    p = re.compile(r'[\d|X].\.[\d|X].\.[\d|X]*')  # test if D(D).M(M).Y(YYY)
-    m = p.match(date)
-    datestring = ""
-    if m:
-        slices = list(reversed(date.split('.')))
-        if isint(slices[0]):
-            datestring += str(slices[0])
-        for slice in slices[1:]:
-            if isint(slice):
-                datestring += "-"+str(slice)
+                        if k == "a" or k == "4" or k == 'i':
+                            sset[k] = litter(sset.get(k), ArrayOrSingleValue(v))
+                if '4' in sset and sset['4'] in datekey_list:
+                    dates.append(sset)
+    if dates:
+        exact_date_index = 0
+        for n, date in enumerate(dates):
+            if "exakt" in date['i'].lower():
+                exact_date_index = n
             else:
-                break
-        return datestring
-    else:
-        return date  # was worth a try
+                exact_date_index = 0
+        if dates and dates[exact_date_index]['4'] in datekey_list:
+            ret = {"@value": dateToEvent(dates[exact_date_index]['a'], event), "disambiguatingDescription": dates[exact_date_index]['i'], "description": dates[exact_date_index]['a']}
+            if ret.get("@value"):
+                return ret
+            elif ret.get("description"):
+                ret.pop("@value")
+                if "-" in ret["description"]:
+                    if event == "startDate" and ret["description"].split("-")[0]:
+                        return ret
+                    elif event == "endDate" and ret["description"].split("-")[1]:
+                        return ret
+    return None
 
 
 def dateToEvent(date, schemakey):
@@ -812,21 +809,128 @@ def dateToEvent(date, schemakey):
 
     don't return deathDate if the person is still alive (determined if e.g. the date looks like "1979-")
     """
+    date = ArrayOrSingleValue(date)
+    if not date:
+        return None
+    if isinstance(date, list):
+        ret = []
+        for item in date:
+            dateItem = dateToEvent(item, schemakey)
+            if dateItem:
+                ret.append(dateItem)
+    if "[" in date and "]" in date:
+        date = date.split("[")[1]
+        date = date.split("]")[0]
+    ddp = dateparser.date.DateDataParser()
+    parsedDate = None
+    strf_string = None
+    ddp_obj = None
     if '-' in date:
         dates = date.split('-')
-        if date[0] == '[' and date[-1] == ']':  # oh..
-            return str("["+dateToEvent(date[1:-1], schemakey)+"]")
         if schemakey == "startDate":  # (start date)
-            return getiso8601(dates[0])
+            ddp_obj = ddp.get_date_data(dates[0])
+            parsedDate = ddp_obj.date_obj
         elif schemakey == "endDate":  # (end Date)
-            if len(dates) == 2:
-                return getiso8601(dates[1])
+            if len(dates) == 2 and dates[1]:
+                ddp_obj = ddp.get_date_data(dates[1])
+                parsedDate = ddp_obj.date_obj
             elif len(dates) == 1:
                 return None  # still alive! congrats
-        else:
-            return date
     else:
-        return getiso8601(date)
+        date = date.lower()
+        ddp_obj = ddp.get_date_data(date)
+        parsedDate = ddp_obj.date_obj
+        # check if its not a date from the future and if the year has four digits
+    if parsedDate and int(parsedDate.strftime("%Y")) < int(datetime.datetime.today().strftime("%Y")) and len(parsedDate.strftime("%Y")) == 4:
+        strf_string = None
+        if ddp_obj.period == "year":
+            strf_string = "%Y"
+        elif ddp_obj.period == "month":
+            strf_string = "%Y-%m"
+        elif ddp_obj.period == "day":
+            strf_string = "%Y-%m-%d"
+        elif ddp_obj.period == "week":
+            strf_string = "%Y-%m"
+        elif ddp_obj.period == "time":
+            strf_string = "%Y-%m-%d"
+        return parsedDate.strftime(strf_string)
+
+
+def datePublished(jline, key, entity):
+    fivethreethree = getmarc(jline, "533.__.d", entity)
+    twosixfour = getmarc(jline, "264.*.c", entity)
+    fivethreefour = getmarc(jline, "534.__.c", entity)
+    zerozeroeight = getmarc(jline, "008", entity)
+    if fivethreethree:
+        return handle_260(fivethreethree)
+    elif not fivethreethree and twosixfour:
+        return handle_260(twosixfour)
+    if not fivethreethree and not twosixfour and fivethreefour:
+        return handle_260(zerozeroeight[7:11])
+    
+
+def dateOriginalPublished(jline, key, entity):
+    fivethreethree = getmarc(jline, "533.__.d", entity)
+    twosixfour = getmarc(jline, "264.*.c", entity)
+    fivethreefour = getmarc(jline, "534.__.c", entity)
+    if fivethreethree:
+        return handle_260(twosixfour)
+    if fivethreefour:
+        return handle_260(fivethreefour)
+    
+
+def parseDate(toParsedDate):
+    if isinstance(toParsedDate, list):
+        toParsedDate = toParsedDate[0]
+    if "[" in toParsedDate and "]" in toParsedDate:
+        toParsedDate = toParsedDate.split("[")[1]
+        toParsedDate = toParsedDate.split("]")[0]
+    ddp = dateparser.date.DateDataParser()
+    ddp_obj = ddp.get_date_data(toParsedDate.lower())
+    parsedDate = ddp_obj.date_obj
+    if parsedDate and int(parsedDate.strftime("%Y")) < int(datetime.datetime.today().strftime("%Y")) and len(parsedDate.strftime("%Y")) == 4:
+        strf_string = None
+        if ddp_obj.period == "year":
+            strf_string = "%Y"
+        elif ddp_obj.period == "month":
+            strf_string = "%Y-%m"
+        elif ddp_obj.period == "day":
+            strf_string = "%Y-%m-%d"
+        elif ddp_obj.period == "week":
+            strf_string = "%Y-%m"
+        elif ddp_obj.period == "time":
+            strf_string = "%Y-%m-%d"
+        return parsedDate.strftime(strf_string)
+
+def handle_260(date):
+    """
+    parse the 264/260 field to a machine-readable format
+    """
+    if isinstance(date, list):
+        ret = []
+        for item in date:
+            dateItem = handle_260(item)
+            if dateItem:
+                ret.append(dateItem)
+        return ArrayOrSingleValue(ret)
+    if not date:
+        return None
+    retObj = {"dateOrigin": date}
+    if "-" in date:
+        dateSplitField = date.split("-")
+        if dateSplitField[0]:
+            dateParsedEarliest = parseDate(dateSplitField[0])
+            if dateParsedEarliest:
+                retObj["dateParsedEarliest"] = dateParsedEarliest
+        if dateSplitField[1]:
+            dateParsedLatest = parseDate(dateSplitField[1])
+            if dateParsedLatest:
+                retObj["dateParsedLatest"] = dateParsedLatest
+    else:
+        parsedDate = parseDate(date)
+        if parsedDate:
+            retObj["dateParsed"] = parsedDate
+    return retObj if retObj["dateOrigin"] else None
 
 
 def getgeo(arr):
@@ -859,11 +963,12 @@ def getav_katalog(record, key, entity):
     produce a link to the katalogbeta for availability information
     """
     retOffers = list()
-    finc_id = "0-" + getmarc(record, "001", entity)
+    swb_ppn = getmarc(record, key[1], entity)
     branchCode = getmarc(record, key[0], entity)
-    if finc_id and isinstance(branchCode, str) and branchCode == "DE-14":
+    # eprint(branchCode,finc_id)
+    if swb_ppn and isinstance(branchCode, str) and branchCode == "DE-14":
         branchCode = [branchCode]
-    if finc_id and isinstance(branchCode, list):
+    if swb_ppn and isinstance(branchCode, list):
         for bc in branchCode:
             if bc == "DE-14":
                 retOffers.append({
@@ -874,7 +979,7 @@ def getav_katalog(record, key, entity):
                         "name": isil2sameAs.get(bc),
                         "branchCode": "DE-14"
                     },
-                    "availability": "https://katalogbeta.slub-dresden.de/id/"+finc_id
+                    "availability": "https://katalog.slub-dresden.de/id/0-{}".format(swb_ppn)
                 })
     if retOffers:
         return retOffers
@@ -970,19 +1075,20 @@ def getAlternateNames(record, key, entity):
 
 
 def handle_preferredName_topic(record, key, entity):
-    name_dict = {}
-    for k in key:
-        name_dict[k] = getmarc(record, k, entity)
-    if name_dict.get("150..a") and not name_dict.get("150..g") and not name_dict.get("150..x"):
-        return name_dict["150..a"]
-    elif name_dict.get("150..a") and name_dict.get("150..g") and not name_dict.get("150..x"):
-        return "{a} ({g})".format(a=name_dict["150..a"], g=name_dict["150..g"])
-    elif name_dict.get("150..a") and name_dict.get("150..x") and not name_dict.get("150..g"):
-        return "{a} / {x}".format(a=name_dict["150..a"], x=name_dict["150..x"])
-    elif name_dict.get("150..a") and name_dict.get("150..x") and name_dict.get("150..g"):
-        return "{a} / {x} ({g}".format(a=name_dict["150..a"], x=name_dict["150..x"], g=name_dict["150..g"])
-    else:
-        return None
+    preferredName = ""
+    if record.get(key):
+        for indicator_level in record[key]:
+            for subfield in indicator_level:
+                for sf_elem in indicator_level.get(subfield):
+                    for k, v in sf_elem.items():
+                        if k == "a":  # is always single valued  https://swbtools.bsz-bw.de/cgi-bin/help.pl?cmd=kat&val=150
+                            preferredName = v
+                        elif k=="x":  # repeatable
+                            preferredName += " / {}".format(v)
+                        elif k=="g":  # repeatable
+                            preferredName += " ({})".format(v)
+    if preferredName:
+        return preferredName
 
 
 def getpublisher(record, key, entity):
@@ -1009,6 +1115,24 @@ def getpublisher(record, key, entity):
         return data
 
 
+def get_physical(record, key, entity):
+    """
+    get physical description according to SLUB JIRA Ticket DMG-1040
+    """
+    phys_map = {"extent": "300..a",
+                "physical_details": "300..b",
+                "dimensions": "300..c",
+                "accompanying_material": "300..e",
+                "reproduction_extent": "533..e"}
+    data = {}
+    for key, marc_key in phys_map.items():
+         value = getmarc(record, marc_key, entity)
+         if value:
+             data[key] = value
+    if data:
+        return data
+
+     
 def single_or_multi(ldj, entity):
     """
     make Fields single or multi valued according to spec 
@@ -1059,6 +1183,21 @@ def getdateModified(record, key, entity):
             elif i == 12:
                 newdate += "Z"
         return newdate
+
+
+def handle_dateCreated(record, key, entity):
+    """
+    get the dateCreated field from the Marcrecord
+    """
+    date = getmarc(record,key, entity)
+    YY = int(date[0:2])
+    MM = int(date[2:4])
+    DD = int(date[4:6])
+    ## check if Year is a 19XX record
+    if YY > int(datetime.datetime.now().date().strftime("%y")):
+        return "19{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
+    else:
+        return "20{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
 
 
 def traverse(dict_or_list, path):
@@ -1129,7 +1268,7 @@ def process_line(jline, index):
     if entity:
         mapline = {}
         for sortkey, val in entities[entity].items():
-            key = sortkey.split(":")[1]
+            key = sortkey.split(":")[1]  # sortkey.split(":")[0] is: single or multi, key is the rest
             value = ArrayOrSingleValue(process_field(jline, val, entity))
             if value:
                 if "related" in key and isinstance(value, dict) and "_key" in value:
@@ -1236,6 +1375,7 @@ entities = {
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: ["001"]},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
         # for SLUB via katalogbeta
         "single:offers": {getav_katalog: ["924..b", "001"]},
@@ -1252,7 +1392,8 @@ entities = {
         "multi:author": {get_subfields: ["100", "110"]},
         "multi:contributor": {get_subfields: ["700", "710"]},
         "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
-        "single:datePublished": {getmarc: ["260..c", "264..c"]},
+        "single:datePublished": {datePublished: ["008", "533", "534", "264"]},
+        "single:dateOriginalPublished": {dateOriginalPublished: ["008", "533", "534", "264"]},
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:issn": {getmarc: ["022..a", "022..y", "022..z", "029..a", "490..x", "730..x", "773..x", "776..x", "780..x", "785..x", "800..x", "810..x", "811..x", "830..x"]},
         "multi:isbn": {getisbn: ["020..a", "022..a", "022..z", "776..z", "780..z", "785..z"]},
@@ -1271,13 +1412,15 @@ entities = {
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
         "multi:description": {getmarc: ["500..a", "520..a"]},
         "multi:mentions": {get_subfield: "689"},
-        "multi:relatedEvent": {get_subfield: "711"}
-    },
+        "multi:relatedEvent": {get_subfield: "711"},
+        "single:physical_description": {get_physical: ["300","533"]}
+        },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1301,13 +1444,16 @@ entities = {
         "single:issueNumber": {getmarc: "773..l"},
         "single:volumeNumer": {getmarc: "773..v"},
         "single:locationCreated": {get_subfield_if_4: "551^orth"},
-        "multi:relatedTo": {relatedTo: "500"}
+        "multi:relatedTo": {relatedTo: "500"},
+        "single:dateOfEstablishment": {startDate: "548^datb,dats"},
+        "single:dateOfTermination": {endDate: "548^datb,dats"}
     },
     "persons": {
         "single:@type": [URIRef(u'http://schema.org/Person')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1324,6 +1470,10 @@ entities = {
         "single:birthDate": {startDate: "548"},
         "single:deathDate": {endDate: "548"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
+        "single:periodOfActivityStart": {startDate: "548^datw,datz"},
+        "single:periodOfActivityEnd": {endDate: "548^datw,datz"},
+        "single:birthDate": {startDate: "548^datl,datx"},
+        "single:deathDate": {endDate: "548^datl,datx"},
     },
     "organizations": {
         "single:@type": [URIRef(u'http://schema.org/Organization')],
@@ -1332,6 +1482,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
         "single:preferredName": {getName: "110..a+b"},
@@ -1343,6 +1494,8 @@ entities = {
         "single:fromLocation": {get_subfield_if_4: "551^geoa"},
         "single:areaServed": {get_subfield_if_4: "551^geow"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
+        "single:dateOfEstablishment": {startDate: "548^datb"},
+        "single:dateOfTermination": {endDate: "548^datb"}
     },
     "geo": {
         "single:@type": [URIRef(u'http://schema.org/Place')],
@@ -1351,6 +1504,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
         "single:preferredName": {getName: "151..a"},
@@ -1359,6 +1513,8 @@ entities = {
         "single:geo": {getGeoCoordinates: {"longitude": ["034..d", "034..e"], "latitude": ["034..f", "034..g"]}},
         "single:adressRegion": {getmarc: "043..c"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
+        "single:dateOfEstablishment": {startDate: "548^datb,dats"},
+        "single:dateOfTermination": {endDate: "548^datb,dats"}
     },
     "topics": {
         "single:@type": [URIRef(u'http://schema.org/Thing')],
@@ -1367,8 +1523,9 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
-        "single:preferredName": {handle_preferredName_topic: ["150..a", "150..g", "150..x"]},
+        "single:preferredName": {handle_preferredName_topic: "150"},
         "multi:alternateName": {getmarc: "450..a+x"},
         "single:description": {getmarc: "679..a"},
         "multi:additionalType": {get_subfield: "550"},
@@ -1379,6 +1536,8 @@ entities = {
         "multi:participant": {get_subfield_if_4: "551^bete"},
         "multi:relatedTo": {get_subfield_if_4: "551^vbal"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
+        "single:dateOfEstablishment": {startDate: "548^datb"},
+        "single:dateOfTermination": {endDate: "548^datb"}
     },
     "events": {
         "single:@type": [URIRef(u'http://schema.org/Event')],
@@ -1387,13 +1546,14 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
         "single:dateModified": {getdateModified: "005"},
+        "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
         "single:preferredName": {getName: ["111..a"]},
         "multi:alternateName": {getmarc: ["411..a"]},
         "single:location": {get_subfield_if_4: "551^ortv"},
-        "single:startDate": {startDate: "548"},
-        "single:endDate": {endDate: "548"},
+        "single:startDate": {startDate: "548^datv"},
+        "single:endDate": {endDate: "548^datv"},
         "single:adressRegion": {getmarc: "043..c"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
     },
@@ -1402,6 +1562,8 @@ entities = {
 def cli():
     args = parse_cli_args()
     es_kwargs = {}                              # dict to collect kwargs for ESgenerator
+    host = None
+    port = None
     if args.server:
         slashsplit = args.server.split("/")
         host = slashsplit[2].rsplit(":")[0]

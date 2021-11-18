@@ -1,0 +1,105 @@
+{    "mappings": {
+      "properties": {
+        "periodOfActivityStart": {
+          "properties": {
+            "@value": {
+              "type": "date"
+                },
+            "description": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "disambiguatingDescription": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            }
+   	  }
+        },
+        "periodOfActivityEnd": {
+          "properties": {
+            "@value": {
+              "type": "date"
+                },
+            "description": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "disambiguatingDescription": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            }
+   	  }
+        },
+        "birthDate": {
+          "properties": {
+            "@value": {
+              "type": "date"
+                },
+            "description": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "disambiguatingDescription": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            }
+   	  }
+        },
+        "deathDate": {
+          "properties": {
+            "@value": {
+              "type": "date"
+              },
+            "description": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "disambiguatingDescription": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            }
+	  }
+        }
+    }
+  }
+}
