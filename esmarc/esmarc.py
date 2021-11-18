@@ -14,7 +14,7 @@ import gzip
 import datetime
 import dateparser
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from swb_fix import marc2relation, isil2sameAs, map_entities, map_types
+from esmarc.swb_fix import marc2relation, isil2sameAs, map_entities, map_types
 
 entities = None
 base_id = None
@@ -1562,6 +1562,8 @@ entities = {
 def cli():
     args = parse_cli_args()
     es_kwargs = {}                              # dict to collect kwargs for ESgenerator
+    host = None
+    port = None
     if args.server:
         slashsplit = args.server.split("/")
         host = slashsplit[2].rsplit(":")[0]
