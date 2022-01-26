@@ -123,7 +123,7 @@ def uniq(lst):
 
 def handlesex(record, key, entity):
     """
-    return the determined sex (not gender), found in the MARC21 code
+    return the determined sex (not gender), found in the MARC21 record
     """
     for v in key:
         marcvalue = getmarc(v, record, entity)
@@ -164,8 +164,9 @@ def gnd2uri(string):
 
 def uri2url(isil, num):
     """
-    Transforms a URI like .../1231111151 to https://d-nb.info/gnd/1231111151,
-    not only GNDs, also SWB, GBV, configureable over isil2sameAs in swb_fix.py
+    Transforms e.g. .../1231111151 to https://d-nb.info/gnd/1231111151,
+    not only GNDs, also SWB, GBV, configureable over isil2sameAs lookup table
+    in swb_fix.py
     """
 
     if isil and num and isil in isil2sameAs:
@@ -190,7 +191,7 @@ def id2uri(string, entity):
 
 def getid(record, regex, entity):
     """
-    wrapper function for schema.org mapping for id2uri
+    wrapper function for schema.org/identifier mapping for id2uri
     """
     _id = getmarc(record, regex, entity)
     if _id:
@@ -212,7 +213,7 @@ def getisil(record, regex, entity):
 
 def getnumberofpages(record, regex, entity):
     """
-    get's the number of pages and sanitizes the field
+    get the number of pages and sanitizes the field into an atomar integer
     """
     nop = getmarc(record, regex, entity)
     try:
@@ -234,7 +235,7 @@ def getnumberofpages(record, regex, entity):
 
 def getgenre(record, regex, entity):
     """
-    gets the genre and builgs a genre node out of it
+    gets the genre and builds a schema.org/genre node out of it
     """
     genre = getmarc(record, regex, entity)
     if genre:
@@ -244,7 +245,7 @@ def getgenre(record, regex, entity):
 
 def getisbn(record, regex, entity):
     """
-    get's the ISBN and sanitizes it
+    gets the ISBN and sanitizes it
     """
     isbns = getmarc(record, regex, entity)
     if isinstance(isbns, str):
@@ -257,7 +258,6 @@ def getisbn(record, regex, entity):
                 for part in isbn.rsplit(" "):
                     if isint(part):
                         isbns[i] = part
-
     if isbns:
         retarray = []
         for isbn in isbns:
@@ -268,7 +268,7 @@ def getisbn(record, regex, entity):
 
 def getmarc(record, regex, entity):
     """
-    get's the in regex specified attribute from a Marc Record
+    gets the in regex specified attribute from a Marc Record
     """
     if "+" in regex:
         marcfield = regex[:3]
@@ -308,10 +308,11 @@ def getmarc(record, regex, entity):
                 ret = list(uniq(ret))
             return ArrayOrSingleValue(ret)
 
-# generator object to get marc values like "240.a" or "001". yield is used bc can be single or multi
-
 
 def getmarcvalues(record, regex, entity):
+    """
+    generator object for getmarc(), using a hardcoded algorithm
+    """
     if len(regex) == 3 and regex in record:
         yield record.get(regex)
     else:
@@ -333,7 +334,7 @@ def getmarcvalues(record, regex, entity):
 
 def handle_about(jline, key, entity):
     """
-    produces schema.org/about: nodes based on RVK, DDC and GND subjects
+    produces schema.org/about nodes based on RVK, DDC and GND subjects
     """
     ret = []
     for k in key:
@@ -410,7 +411,7 @@ def handle_single_rvk(data):
 
 def relatedTo(jline, key, entity):
     """
-    produces some relatedTo and other nodes based on Marc-Relator Codes
+    produces some relatedTo and other nodes based on GND-MARC21-Relator Codes
     """
     # e.g. split "551^4:orta" to 551 and orta
     marcfield = key[:3]
@@ -501,7 +502,7 @@ def relatedTo(jline, key, entity):
 
 def get_subfield_if_4(jline, key, entity):
     """
-    get's subfield of marc-Records and builds some nodes out of them if a clause is statisfied
+    gets subfield of marc-Records and builds some nodes out of them if a clause is statisfied
     """
     # e.g. split "551^4:orta" to 551 and orta
     marcfield = key.rsplit("^")[0]
@@ -529,7 +530,8 @@ def get_subfield_if_4(jline, key, entity):
 
 def get_subfields(jline, key, entity):
     """
-    wrapper-function for get_subfield for multi value
+    wrapper-function for get_subfield for multi value:
+    reads some subfield information and builds some nodes out of them, needs an entity mapping to work
     """
     data = []
     if isinstance(key, list):
@@ -610,8 +612,6 @@ def handleHasPart(jline, keys, entity):
 def get_subfield(jline, key, entity):
     """
     reads some subfield information and builds some nodes out of them, needs an entity mapping to work
-
-    whenever you call get_subfield add the MARC21 field to the if/elif/else switch/case thingy with the correct MARC21 field->entity mapping
     """
     keymap = {"100": "persons",
               "700": "persons",
@@ -700,7 +700,8 @@ def get_subfield(jline, key, entity):
 
 def getsameAs(jline, keys, entity):
     """
-    produces sameAs information out of the record
+    produces schema.org/sameAs node out of the MARC21-Record
+    for KXP and DNB
     """
     sameAs = []
     for key in keys:
@@ -738,7 +739,8 @@ def getsameAs(jline, keys, entity):
 
 def startDate(jline, key, entity):
     """
-    calls marc_dates with the correct key for a date-mapping
+    calls marc_dates with the correct key (start) for a date-mapping
+    produces an date-Object for the startDate-field
     """
     extra_key = ""
     if "^" in key:
@@ -753,7 +755,8 @@ def startDate(jline, key, entity):
 
 def endDate(jline, key, entity):
     """
-    calls marc_dates with the correct key for a date-mapping
+    calls marc_dates with the correct key (end) for a date-mapping
+    produces an date-object for the endDate field
 
     """
     datekey_list = ""
@@ -806,8 +809,8 @@ def marc_dates(record, entity, event, datekey_list):
 def dateToEvent(date, schemakey):
     """
     return birthDate and deathDate schema.org attributes
-
-    don't return deathDate if the person is still alive (determined if e.g. the date looks like "1979-")
+    don't return deathDate if the person is still alive according to the data
+    (determined if e.g. the date looks like "1979-")
     """
     date = ArrayOrSingleValue(date)
     if not date:
@@ -857,6 +860,9 @@ def dateToEvent(date, schemakey):
 
 
 def datePublished(jline, key, entity):
+    """
+    reads different MARC21 Fields to determine when the entity behind this record got published
+    """
     fivethreethree = getmarc(jline, "533.__.d", entity)
     twosixfour = getmarc(jline, "264.*.c", entity)
     fivethreefour = getmarc(jline, "534.__.c", entity)
@@ -870,6 +876,9 @@ def datePublished(jline, key, entity):
     
 
 def dateOriginalPublished(jline, key, entity):
+    """
+    reads different MARC21 Fields to determine when the entity behind this record got published originally
+    """
     fivethreethree = getmarc(jline, "533.__.d", entity)
     twosixfour = getmarc(jline, "264.*.c", entity)
     fivethreefour = getmarc(jline, "534.__.c", entity)
@@ -880,6 +889,9 @@ def dateOriginalPublished(jline, key, entity):
     
 
 def parseDate(toParsedDate):
+    """
+    use scrapehubs dateParser to get an Python dateobject out of pure MARC21-Rubbish
+    """
     if isinstance(toParsedDate, list):
         toParsedDate = toParsedDate[0]
     if "[" in toParsedDate and "]" in toParsedDate:
@@ -945,7 +957,7 @@ def getgeo(arr):
 
 def getGeoCoordinates(record, key, entity):
     """
-    get the geographic coordinates of a place from its Marc21 authority Record
+    get the geographic coordinates of an entity from the corresponding MARC21 authority Record
     """
     ret = {}
     for k, v in key.items():
@@ -960,7 +972,7 @@ def getGeoCoordinates(record, key, entity):
 
 def getav_katalog(record, key, entity):
     """
-    produce a link to the katalogbeta for availability information
+    produce a link to katatalog.slub-dresden.de for availability information
     """
     retOffers = list()
     swb_ppn = getmarc(record, key[1], entity)
@@ -1075,6 +1087,9 @@ def getAlternateNames(record, key, entity):
 
 
 def handle_preferredName_topic(record, key, entity):
+    """
+    get the preferredName of an Topic
+    """
     preferredName = ""
     if record.get(key):
         for indicator_level in record[key]:
@@ -1093,7 +1108,7 @@ def handle_preferredName_topic(record, key, entity):
 
 def getpublisher(record, key, entity):
     """
-    get the publish name and the publish place from two different fields to produce a node out of it
+    produces a Publisher-node out of two different MARC21-Fields
     """
     pub_name = getmarc(record, ["260..b", "264..b"], entity)
     pub_place = getmarc(record, ["260..a", "264..a"], entity)
@@ -1117,7 +1132,7 @@ def getpublisher(record, key, entity):
 
 def get_physical(record, key, entity):
     """
-    get physical description according to SLUB JIRA Ticket DMG-1040
+    get the physical description of the entity
     """
     phys_map = {"extent": "300..a",
                 "physical_details": "300..b",
@@ -1135,7 +1150,7 @@ def get_physical(record, key, entity):
      
 def single_or_multi(ldj, entity):
     """
-    make Fields single or multi valued according to spec 
+    make Fields single or multi valued according to spec defined in the mapping table
     """
     for k in entities[entity]:
         for key, value in ldj.items():
@@ -1163,8 +1178,8 @@ def getentity(record):
 
 def getdateModified(record, key, entity):
     """
-    get the DateModified field from the Marcrecord,
-    date of the last modification of the MarcRecord
+    get the DateModified field from the MARC21-Record,
+    date of the last modification of the MARC21-Record
     """
     date = getmarc(record, key, entity)
     newdate = ""
@@ -1187,7 +1202,7 @@ def getdateModified(record, key, entity):
 
 def handle_dateCreated(record, key, entity):
     """
-    get the dateCreated field from the Marcrecord
+    get the dateCreated field from the MARC21-Record
     """
     date = getmarc(record,key, entity)
     YY = int(date[0:2])
@@ -1202,7 +1217,7 @@ def handle_dateCreated(record, key, entity):
 
 def traverse(dict_or_list, path):
     """
-    iterate through a python dict or list, yield all the values
+    iterate through a python dict or list, yield all the keys/values
     """
     iterator = None
     if isinstance(dict_or_list, dict):
@@ -1560,6 +1575,9 @@ entities = {
 }
 
 def cli():
+    """
+    function for feeding the main-function with commandline-arguments when calling esmarc as standalone program from shell
+    """
     args = parse_cli_args()
     es_kwargs = {}                              # dict to collect kwargs for ESgenerator
     host = None
