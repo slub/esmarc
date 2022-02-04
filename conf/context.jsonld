@@ -12,11 +12,11 @@
 	"dateOfTermination": "dnb:dateOfTermination",
 	"dateOfEstablishment": "dnb:dateOfEstablishment",
 	"periodOfActivityStart": "dnb:dateOfTermination",
-	"periodOfActivityEnd": "dnb:dateOfEstablishment"
-       "physical_details: "dct:format",
-       "extent": "dct:format",
-       "dimensions": "dct:format",
-       "accompanying_material": "dct:format",
-       "reproduction_extent": "dct:format"
+	"periodOfActivityEnd": "dnb:dateOfEstablishment",
+        "physical_details: "dct:format",
+        "extent": "dct:format",
+        "dimensions": "dct:format",
+        "accompanying_material": "dct:format",
+        "reproduction_extent": "dct:format"
     }
 }
