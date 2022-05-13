@@ -1,4 +1,3 @@
-
 lookup_sameAs = {
     "(DE-588)":{
         "@id": "https://d-nb.info/",

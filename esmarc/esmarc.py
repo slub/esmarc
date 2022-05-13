@@ -702,6 +702,7 @@ def getsameAs(jline, keys, entity):
     for KXP and DNB
     """
     sameAs = []
+    raw_data = set()
     for key in keys:
         data = getmarc(jline, key, entity)
         if isinstance(data, str):
@@ -716,6 +717,21 @@ def getsameAs(jline, keys, entity):
                     newSameAs = lookup_sameAs[elem[0:8]]
                     sameAs.append(newSameAs)
     return sameAs
+
+def handle_identifier(jline, key, entity):
+    ids = []
+    data = getmarc(jline, key, entity)
+    for _id in data:
+        id_obj = {"@type": "PropertyValue"}
+        id_obj["propertyID"] = _id[1:7]
+        id_obj["value"] = _id[8:]
+        if "DE-627" in id_obj["propertyID"]:
+            id_obj["name"] = "K10Plus-ID"
+            ids.append(id_obj)
+        elif "DE-576" in id_obj["propertyID"]:
+            id_obj["name"] = "SWB-ID"
+            ids.append(id_obj)
+    return ids
 
 
 def startDate(jline, key, entity):
@@ -1393,16 +1409,13 @@ entities = {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: ["001"]},
-        "single:dateCreated": {handle_dateCreated: ["008"]},
-        #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
-        # for SLUB via katalogbeta
+        "multi:identifier": {handle_identifier: ["035..a"]},
         "single:offers": {getav_katalog: ["924..b", "001"]},
         "single:_isil": {getisil: ["003", "852..a", "924..b"]},
         "single:_ppn": {getmarc: "001"},
         "single:_sourceID": {getmarc: "980..b"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["016..a", "035..a", "670..u"]},
         "single:preferredName": {getName: ["245..a", "245..b"]},
         "single:nameShort": {getAlternateNames: "245..a"},
         "single:nameSub": {getAlternateNames: "245..b"},
@@ -1446,6 +1459,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
         "single:preferredName": {getName: ["100..t", "110..t", "130..t", "111..t", "130..a"]},
@@ -1479,6 +1493,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
@@ -1505,6 +1520,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1527,6 +1543,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1546,6 +1563,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1569,6 +1587,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
