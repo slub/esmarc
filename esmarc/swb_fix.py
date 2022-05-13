@@ -8,7 +8,7 @@ lookup_sameAs = {
     "(DE-627)": {
         "@id": "https://opac.k10plus.de/DB=2.299/PPNSET?PPN=",
         "publisher": {"preferredName": "K10Plus",
-                      "@id": "https://data.slub-dresden.de/organizations/103302212",
+                      "@id": "https://ld.zdb-services.de/resource/organisations/DE-627",
                       "abbr": "KXP"}
         },
     "(DE-576)": {

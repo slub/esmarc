@@ -54,7 +54,7 @@ def parse_cli_args():
                         help="path to a file with IDs to process")
     parser.add_argument('-query', type=json.loads, default={},
                         help='prefilter the data based on an elasticsearch-query')
-    parser.add_argument('-base_id_src', type=str, default="http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN=",
+    parser.add_argument('-base_id_src', type=str, default="https://opac.k10plus.de/DB=2.299/PPNSET?PPN=",
                         help="set up which base_id to use for sameAs. e.g. https://d-nb.info/gnd/xxx")
     parser.add_argument('-target_id', type=str, default="https://data.slub-dresden.de/",
                         help="set up which target_id to use for @id. e.g. http://data.finc.info")
@@ -168,9 +168,10 @@ def uri2url(isil, num):
     not only GNDs, also SWB, GBV, configureable over lookup_sameAs lookup table
     in swb_fix.py
     """
-
+    if isil == "(DE-576)":
+        return None
     if isil and num and isil in lookup_sameAs:
-        return str(lookup_sameAs[isil]["@id"]+num)
+        return "{}{}".format(lookup_sameAs[isil]["@id"],num)
 
 
 def id2uri(string, entity):
@@ -711,10 +712,9 @@ def getsameAs(jline, keys, entity):
             for elem in data:
                 if elem[0:8] in lookup_sameAs:
                     data = gnd2uri(elem)
-                    newSameAs = lookup_sameAs[elem[0:8]]
+                    newSameAs = dict(lookup_sameAs[elem[0:8]])
                     newSameAs["@id"] = data
                     newSameAs["isBasedOn"] = {"@type": "Dataset", "@id": ""}
-                    newSameAs = lookup_sameAs[elem[0:8]]
                     sameAs.append(newSameAs)
     return sameAs
 
