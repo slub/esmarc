@@ -592,6 +592,7 @@ lookup_coll = {
 "HistGuide": "History Guide: Fachkatalog digitaler Ressourcen für die Geschichtswissenschaft",
 "INKA": "Daten übernommen aus dem Inkunabelkatalog deutscher Bibliotheken (INKA)",
 "KALD": "Kanonistische Literaturdokumentation Innsbruck (IxTheo)",
+"KLOK": "Kulturrat Oldenburg Karten",
 "krex": "Manueller Eintrag bei maschinell selektierten Datensätzen für KrimDok, die keinen kriminologischen Bezug haben",
 "leos": "In LEO-BW verwendet",
 "MIKA": "Missionsbibliothek und katholische Dokumentationsstelle des MWI Aachen (IxTheo)",
