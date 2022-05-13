@@ -1238,6 +1238,38 @@ def handle_dateCreated(record, key, entity):
         return "20{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
 
 
+def geteditionStatement(record, key, entity):
+    a = getmarc(record, "250..a", entity)
+    b = getmarc(record, "250..b", entity)
+    if a and b:
+        return "{}, {}".format(a,b)
+
+
+def geteditionSequence(record, key, entity):
+    if key in record:
+        for indicator_level in record[key]:
+            if "0_" in indicator_level:
+                for item in indicator_level["0_"]:
+                    if "a" in item:
+                        return item["a"]
+
+
+def get_cartData(record, key, entity):
+    scale = getmarc(record, "255..a", entity)
+    projection = getmarc(record, "255..b", entity)
+    coordinates = getmarc(record, "255..c", entity)
+
+    data = {}
+    if scale:
+        data["scale"] = scale
+    if projection:
+        data["projection"] = projection
+    if coordinates:
+        data["coordinates"] = coordinates
+    if data:
+        return data
+
+
 def traverse(dict_or_list, path):
     """
     iterate through a python dict or list, yield all the keys/values
@@ -1453,6 +1485,10 @@ entities = {
         "multi:relatedEvent": {get_subfield: "711"},
         "single:physical_description": {get_physical: ["300","533"]},
         "multi:collection": {get_collection: ["084..a","935..a"]},
+        "single:editionStatement": {geteditionStatement: "250"},
+        "single:reproductionType": {getmarc: "533..a"},
+        "single:editionSequence": {geteditionSequence: "362"},
+        "single:cartographicData": {get_cartData: "255"}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
