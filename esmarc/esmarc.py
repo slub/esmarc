@@ -14,7 +14,7 @@ import gzip
 import datetime
 import dateparser
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from esmarc.swb_fix import marc2relation, isil2sameAs, map_entities, map_types, lookup_coll, lookup_ssg_fid
+from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs
 
 entities = None
 base_id = None
@@ -157,7 +157,7 @@ def gnd2uri(string):
                     ret.append(gnd2uri(st))
                 return ret
             elif isinstance(string, str):   # added .upper
-                return uri2url(string.split(')')[0][1:], string.split(')')[1].upper())
+                return uri2url("({})".format(string.split(')')[0][1:]), string.split(')')[1].upper())
     except:
         return
 
@@ -165,14 +165,12 @@ def gnd2uri(string):
 def uri2url(isil, num):
     """
     Transforms e.g. .../1231111151 to https://d-nb.info/gnd/1231111151,
-    not only GNDs, also SWB, GBV, configureable over isil2sameAs lookup table
+    not only GNDs, also SWB, GBV, configureable over lookup_sameAs lookup table
     in swb_fix.py
     """
 
-    if isil and num and isil in isil2sameAs:
-        return str(isil2sameAs.get(isil)+num)
-    # else:
-        # return str("("+isil+")"+num)    #bugfix for isil not be able to resolve for sameAs, so we give out the identifier-number
+    if isil and num and isil in lookup_sameAs:
+        return str(lookup_sameAs[isil]["@id"]+num)
 
 
 def id2uri(string, entity):
@@ -203,11 +201,11 @@ def getisil(record, regex, entity):
     get the ISIL of the record
     """
     isil = getmarc(record, regex, entity)
-    if isinstance(isil, str) and isil in isil2sameAs:
+    if isinstance(isil, str) and "({})".format(isil) in lookup_sameAs:
         return isil
     elif isinstance(isil, list):
         for item in isil:
-            if item in isil2sameAs:
+            if "({})".format(item) in lookup_sameAs:
                 return item
 
 
@@ -710,30 +708,13 @@ def getsameAs(jline, keys, entity):
             data = [data]
         if isinstance(data, list):
             for elem in data:
-                if "DE-576" not in elem:  # ignore old SWB id for root SameAs
+                if elem[0:8] in lookup_sameAs:
                     data = gnd2uri(elem)
-                    if data and isinstance(data, str):
-                        data = [data]
-                    if isinstance(data, list):
-                        for elem in data:
-                            if elem and elem.startswith("http"):
-                                sameAs.append({"@id": elem,
-                                               "publisher": {
-                                                   "@id": "data.slub-dresden.de", },
-                                               "isBasedOn": {
-                                                   "@type": "Dataset",
-                                                   "@id": "",
-                                               }
-                                               })
-    for n, item in enumerate(sameAs):
-        if "d-nb.info" in item["@id"]:
-            sameAs[n]["publisher"]["preferredName"] = "Deutsche Nationalbibliothek"
-            sameAs[n]["publisher"]["@id"] = "https://data.slub-dresden.de/organizations/514366265"
-            sameAs[n]["publisher"]["abbr"] = "DNB"
-        elif "swb.bsz-bw.de" in item["@id"]:
-            sameAs[n]["publisher"]["preferredName"] = "K10Plus"
-            sameAs[n]["publisher"]["@id"] = "https://data.slub-dresden.de/organizations/103302212"
-            sameAs[n]["publisher"]["abbr"] = "KXP"
+                    newSameAs = lookup_sameAs[elem[0:8]]
+                    newSameAs["@id"] = data
+                    newSameAs["isBasedOn"] = {"@type": "Dataset", "@id": ""}
+                    newSameAs = lookup_sameAs[elem[0:8]]
+                    sameAs.append(newSameAs)
     return sameAs
 
 
@@ -988,36 +969,10 @@ def getav_katalog(record, key, entity):
                     "offeredBy": {
                         "@id": "https://data.slub-dresden.de/organizations/191800287",
                         "@type": "Library",
-                        "name": isil2sameAs.get(bc),
+                        "name": "Sächsische Landesbibliothek – Staats- und Universitätsbibliothek Dresden",
                         "branchCode": "DE-14"
                     },
                     "availability": "https://katalog.slub-dresden.de/id/0-{}".format(swb_ppn)
-                })
-    if retOffers:
-        return retOffers
-
-
-def getav(record, key, entity):
-    """
-    produce a link to the UBLeipzig DAIA/PAIA for availability information
-    """
-    retOffers = list()
-    offers = getmarc(record, [0], entity)
-    ppn = getmarc(record, key[1], entity)
-    if isinstance(offers, str):
-        offers = [offers]
-    if ppn and isinstance(offers, list):
-        for offer in offers:
-            if offer in isil2sameAs:
-                retOffers.append({
-                    "@type": "Offer",
-                    "offeredBy": {
-                        "@id": "https://data.finc.info/resource/organisation/"+offer,
-                        "@type": "Library",
-                        "name": isil2sameAs.get(offer),
-                        "branchCode": offer
-                    },
-                    "availability": "http://data.ub.uni-leipzig.de/item/wachtl/"+offer+":ppn:"+ppn
                 })
     if retOffers:
         return retOffers
@@ -1354,20 +1309,14 @@ def process_line(jline, index):
                 else:
                     mapline[key] = litter(mapline.get(key), value)
         if mapline:
-            if "publisherImprint" in mapline:
-                mapline["@context"] = list(
-                    [mapline.pop("@context"), URIRef(u'http://bib.schema.org/')])
-            if "isbn" in mapline:
-                mapline["@type"] = URIRef(u'http://schema.org/Book')
-            if "issn" in mapline:
-                mapline["@type"] = URIRef(
-                    u'http://schema.org/CreativeWorkSeries')
             if index:
                 mapline["isBasedOn"] = target_id+"source/" + \
                     index+"/"+getmarc(jline, "001", None)
             if isinstance(mapline.get("sameAs"), list):
                 for n, sameAs in enumerate(mapline["sameAs"]):
                     mapline["sameAs"][n]["isBasedOn"]["@id"] = mapline["isBasedOn"]
+                    if mapline["sameAs"][n].get("publisher") and mapline["sameAs"][n]["publisher"]["abbr"] == "BSZ":
+                        mapline["sameAs"][n]["@id"] = "https://swb.bsz-bw.de/DB=2.1/PPNSET?PPN={}".format(getmarc(jline, "001", None))
             return {entity: single_or_multi(removeNone(removeEmpty(mapline)), entity)}
 
 
