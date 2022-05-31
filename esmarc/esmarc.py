@@ -705,13 +705,14 @@ def getsameAs(jline, keys, entity):
     for key in keys:
         if key == "016":  # 016 has ISIL in 016$2 and ID in 016$a.
             marc_data = getmarc(jline, key, entity)
-            for indicator_level in marc_data:
-                for _ind in indicator_level:
-                    sset = {}
-                    for subfield_dict in indicator_level[_ind]:
-                        for k,v in subfield_dict.items():
-                            sset[k] = v
-                            eprint(sset)
+            if isinstance(marc_data,list):
+                for indicator_level in marc_data:
+                    for _ind in indicator_level:
+                        sset = {}
+                        for subfield_dict in indicator_level[_ind]:
+                            for k,v in subfield_dict.items():
+                                sset[k] = v
+                                eprint(sset)
                     if sset.get("a") and sset.get("2"):
                         data = litter(data, "({}){}".format(sset["2"], sset["a"]))
         elif key == "035..a":  # 035$a has already both in $a, so we're fine

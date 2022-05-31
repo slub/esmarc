@@ -38,7 +38,7 @@ setup(name='esmarc',
       },
       install_requires=[
           'argparse>=1.4.0',
-          'elasticsearch>=8.0.0',
+          'elasticsearch>=7.0.0',
           'rdflib>=4.2.2',
           'dateparser',
           'urllib3'
