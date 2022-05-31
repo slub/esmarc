@@ -15,7 +15,7 @@ import datetime
 import dateparser
 import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from esmarc.swb_fix import marc2relation, isil2sameAs, map_entities, map_types
+from esmarc.swb_fix import marc2relation, isil2sameAs, map_entities, map_types, lookup_coll, lookup_ssg_fid
 
 entities = None
 base_id = None
@@ -1144,7 +1144,30 @@ def get_physical(record, key, entity):
     if data:
         return data
 
-     
+
+def get_collection(record, keys, entity):
+    """
+    get the collection description of the entity
+    """
+    data = []
+    for key in keys:
+        value = getmarc(record, key, "resources")
+        if value:
+            if isinstance(value, str):
+                value = [value]
+            for item in value:
+                if key.startswith("084"):
+                    if item in lookup_ssg_fid:
+                        data.append({"preferredName": lookup_ssg_fid[item],
+                                     "abbr": item})
+                if key.startswith("935"):
+                    if item in lookup_coll:
+                        data.append({"preferredName": lookup_coll[item],
+                                     "abbr": item})
+    if data:
+        return data
+
+
 def single_or_multi(ldj, entity):
     """
     make Fields single or multi valued according to spec defined in the mapping table
@@ -1210,6 +1233,38 @@ def handle_dateCreated(record, key, entity):
         return "19{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
     else:
         return "20{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
+
+
+def geteditionStatement(record, key, entity):
+    a = getmarc(record, "250..a", entity)
+    b = getmarc(record, "250..b", entity)
+    if a and b:
+        return "{}, {}".format(a,b)
+
+
+def geteditionSequence(record, key, entity):
+    if key in record:
+        for indicator_level in record[key]:
+            if "0_" in indicator_level:
+                for item in indicator_level["0_"]:
+                    if "a" in item:
+                        return item["a"]
+
+
+def get_cartData(record, key, entity):
+    scale = getmarc(record, "255..a", entity)
+    projection = getmarc(record, "255..b", entity)
+    coordinates = getmarc(record, "255..c", entity)
+
+    data = {}
+    if scale:
+        data["scale"] = scale
+    if projection:
+        data["projection"] = projection
+    if coordinates:
+        data["coordinates"] = coordinates
+    if data:
+        return data
 
 
 def traverse(dict_or_list, path):
@@ -1425,7 +1480,12 @@ entities = {
         "multi:description": {getmarc: ["500..a", "520..a"]},
         "multi:mentions": {get_subfield: "689"},
         "multi:relatedEvent": {get_subfield: "711"},
-        "single:physical_description": {get_physical: ["300","533"]}
+        "single:physical_description": {get_physical: ["300","533"]},
+        "multi:collection": {get_collection: ["084..a","935..a"]},
+        "single:editionStatement": {geteditionStatement: "250"},
+        "single:reproductionType": {getmarc: "533..a"},
+        "single:editionSequence": {geteditionSequence: "362"},
+        "single:cartographicData": {get_cartData: "255"}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
