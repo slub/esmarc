@@ -1,5 +1,11 @@
 lookup_sameAs = {
     "(DE-588)":{
+        "@id": "https://d-nb.info/gnd/",
+        "publisher": {"preferredName": "Deutsche Nationalbibliothek, Gemeinsame Normdatei",
+                      "@id": "https://ld.zdb-services.de/resource/organisations/DE-588",
+                      "abbr": "DNB"}
+        },
+    "(DE-101)":{
         "@id": "https://d-nb.info/",
         "publisher": {"preferredName": "Deutsche Nationalbibliothek",
                       "@id": "https://ld.zdb-services.de/resource/organisations/DE-101",

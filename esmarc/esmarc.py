@@ -697,22 +697,35 @@ def get_subfield(jline, key, entity):
 def getsameAs(jline, keys, entity):
     """
     produces schema.org/sameAs node out of the MARC21-Record
-    for KXP and DNB
+    for KXP, DNB, RISM and others.
     """
     sameAs = []
     raw_data = set()
+    data = []
     for key in keys:
-        data = getmarc(jline, key, entity)
-        if isinstance(data, str):
-            data = [data]
-        if isinstance(data, list):
-            for elem in data:
-                if elem[0:8] in lookup_sameAs:
-                    data = gnd2uri(elem)
-                    newSameAs = dict(lookup_sameAs[elem[0:8]])
-                    newSameAs["@id"] = data
-                    newSameAs["isBasedOn"] = {"@type": "Dataset", "@id": ""}
-                    sameAs.append(newSameAs)
+        if key == "016":  # 016 has ISIL in 016$2 and ID in 016$a.
+            marc_data = getmarc(jline, key, entity)
+            for indicator_level in marc_data:
+                for _ind in indicator_level:
+                    sset = {}
+                    for subfield_dict in indicator_level[_ind]:
+                        for k,v in subfield_dict.items():
+                            sset[k] = v
+                            eprint(sset)
+                    if sset.get("a") and sset.get("2"):
+                        data = litter(data, "({}){}".format(sset["2"], sset["a"]))
+        elif key == "035..a":  # 035$a has already both in $a, so we're fine
+            data = litter(data, getmarc(jline, key, entity))
+    if isinstance(data, str):
+        data = [data]
+    if isinstance(data, list):
+        for elem in data:
+            if elem[0:8] in lookup_sameAs:
+                data = gnd2uri(elem)
+                newSameAs = dict(lookup_sameAs[elem[0:8]])
+                newSameAs["@id"] = data
+                newSameAs["isBasedOn"] = {"@type": "Dataset", "@id": ""}
+                sameAs.append(newSameAs)
     return sameAs
 
 def handle_identifier(jline, key, entity):
@@ -1412,7 +1425,7 @@ entities = {
         "single:_ppn": {getmarc: "001"},
         "single:_sourceID": {getmarc: "980..b"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["016..a", "035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["016", "035..a"]},
         "single:preferredName": {getName: ["245..a", "245..b"]},
         "single:nameShort": {getAlternateNames: "245..a"},
         "single:nameSub": {getAlternateNames: "245..b"},

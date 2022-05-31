@@ -41,7 +41,7 @@ setup(name='esmarc',
           'elasticsearch>=8.0.0',
           'rdflib>=4.2.2',
           'dateparser',
-          'urllib"
+          'urllib3'
       ],
       python_requires=">=3.5.*",
       entry_points={
