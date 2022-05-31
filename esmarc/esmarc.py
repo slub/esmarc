@@ -712,7 +712,6 @@ def getsameAs(jline, keys, entity):
                         for subfield_dict in indicator_level[_ind]:
                             for k,v in subfield_dict.items():
                                 sset[k] = v
-                                eprint(sset)
                     if sset.get("a") and sset.get("2"):
                         data = litter(data, "({}){}".format(sset["2"], sset["a"]))
         elif key == "035..a":  # 035$a has already both in $a, so we're fine
@@ -1453,7 +1452,7 @@ entities = {
         "multi:locationCreated": {get_subfield_if_4: "551^4:orth"},
         "multi:relatedTo": {relatedTo: "500..0"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
-        "multi:description": {getmarc: ["500..a", "520..a"]},
+        "multi:description": {getmarc: ["520..a"]},
         "multi:mentions": {get_subfield: "689"},
         "multi:relatedEvent": {get_subfield: "711"},
         "single:physical_description": {get_physical: ["300","533"]},
