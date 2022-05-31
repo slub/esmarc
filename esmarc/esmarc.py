@@ -13,6 +13,7 @@ import re
 import gzip
 import datetime
 import dateparser
+import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
 from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs
 
@@ -30,10 +31,8 @@ def parse_cli_args():
     parser = argparse.ArgumentParser(
         description='Entitysplitting/Recognition of MARC-Records')
     parser.add_argument(
-        '-host', type=str, help='hostname or IP-Address of the ElasticSearch-node to use. If None we try to read ldj from stdin.')
-    parser.add_argument('-port', type=int, default=9200,
-                        help='Port of the ElasticSearch-node to use, default is 9200.')
-    parser.add_argument('-type', type=str, help='ElasticSearch Type to use')
+        '-host', type=str, help='hostname or IP-Address and of the ElasticSearch-node to use.')
+    parser.add_argument('-type', type=str, default="_doc", help='ElasticSearch Type to use')
     parser.add_argument('-index', type=str, help='ElasticSearch Index to use')
     parser.add_argument(
         '-id', type=str, help='map single document, given by id')
@@ -45,9 +44,7 @@ def parse_cli_args():
     parser.add_argument('-debug', action="store_true",
                         help='Dump processed Records to stdout (mostly used for debug-purposes)')
     parser.add_argument(
-        '-server', type=str, help="use http://host:port/index/type/id?pretty syntax. overwrites host/port/index/id/pretty")
-    parser.add_argument('-pretty', action="store_true",
-                        default=False, help="output tabbed json")
+        '-server', type=str, help="use http://host:port/index/type/id syntax. overwrites host:port/index/id")
     parser.add_argument('-w', type=int, default=8,
                         help="how many processes to use, too many could overload the elasticsearch")
     parser.add_argument('-idfile', type=str,
@@ -105,7 +102,7 @@ def main(elastic=None,
         pool.close()
         pool.join()
     else:  # oh noes, no elasticsearch input-setup. exiting.
-        eprint("No -host/-port/-index or -server specified, exiting\n")
+        eprint("No -host:port/-index or -server specified, exiting\n")
         exit(-1)
 
 
@@ -1609,24 +1606,23 @@ def cli():
     args = parse_cli_args()
     es_kwargs = {}                              # dict to collect kwargs for ESgenerator
     host = None
-    port = None
+    _type = None
+    id = None
     if args.server:
-        slashsplit = args.server.split("/")
-        host = slashsplit[2].rsplit(":")[0]
-        if isint(args.server.split(":")[2].rsplit("/")[0]):
-            port = args.server.split(":")[2].split("/")[0]
-        _index = args.server.split("/")[3]
-        if len(slashsplit) > 4:
-            _type = slashsplit[4]
-            id = None
-        if len(slashsplit) > 5:
-            _type = slashsplit[4]
-            id = slashsplit[5]
-        else:
-            _type = None
-            id = None
-    if host and port:
-        elastic = elasticsearch.Elasticsearch([{"host": host}], port=port)
+        _parsed_url = urllib.parse.urlparse(args.server)
+        host = "{}://{}".format(_parsed_url.scheme,_parsed_url.netloc)
+        slashsplit = urllib.parse.urlparse(args.server).path.split("/")
+        _index = slashsplit[1]
+        if len(slashsplit) >= 3 and slashsplit[2]:
+            _type = slashsplit[2]
+        if len(slashsplit) >= 4:
+            _type = slashsplit[2]
+            id = slashsplit[3]
+    else:
+        host = args.host
+        _index = args.index
+        _type = args.type
+    elastic = elasticsearch.Elasticsearch(host)
     main(_index=_index, _type=_type, _id=id, _base_id_src=args.base_id_src, debug=args.debug, _target_id=args.target_id, z=args.z, elastic=elastic, query=args.query, idfile=args.idfile, prefix=args.prefix)
 
 
