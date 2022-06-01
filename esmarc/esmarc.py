@@ -15,7 +15,7 @@ import datetime
 import dateparser
 import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from esmarc.swb_fix import marc2relation, isil2sameAs, map_entities, map_types, lookup_coll, lookup_ssg_fid
+from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs
 
 entities = None
 base_id = None
@@ -51,7 +51,7 @@ def parse_cli_args():
                         help="path to a file with IDs to process")
     parser.add_argument('-query', type=json.loads, default={},
                         help='prefilter the data based on an elasticsearch-query')
-    parser.add_argument('-base_id_src', type=str, default="http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN=",
+    parser.add_argument('-base_id_src', type=str, default="https://opac.k10plus.de/DB=2.299/PPNSET?PPN=",
                         help="set up which base_id to use for sameAs. e.g. https://d-nb.info/gnd/xxx")
     parser.add_argument('-target_id', type=str, default="https://data.slub-dresden.de/",
                         help="set up which target_id to use for @id. e.g. http://data.finc.info")
@@ -154,7 +154,7 @@ def gnd2uri(string):
                     ret.append(gnd2uri(st))
                 return ret
             elif isinstance(string, str):   # added .upper
-                return uri2url(string.split(')')[0][1:], string.split(')')[1].upper())
+                return uri2url("({})".format(string.split(')')[0][1:]), string.split(')')[1].upper())
     except:
         return
 
@@ -162,14 +162,13 @@ def gnd2uri(string):
 def uri2url(isil, num):
     """
     Transforms e.g. .../1231111151 to https://d-nb.info/gnd/1231111151,
-    not only GNDs, also SWB, GBV, configureable over isil2sameAs lookup table
+    not only GNDs, also SWB, GBV, configureable over lookup_sameAs lookup table
     in swb_fix.py
     """
-
-    if isil and num and isil in isil2sameAs:
-        return str(isil2sameAs.get(isil)+num)
-    # else:
-        # return str("("+isil+")"+num)    #bugfix for isil not be able to resolve for sameAs, so we give out the identifier-number
+    if isil == "(DE-576)":
+        return None
+    if isil and num and isil in lookup_sameAs:
+        return "{}{}".format(lookup_sameAs[isil]["@id"],num)
 
 
 def id2uri(string, entity):
@@ -200,11 +199,11 @@ def getisil(record, regex, entity):
     get the ISIL of the record
     """
     isil = getmarc(record, regex, entity)
-    if isinstance(isil, str) and isil in isil2sameAs:
+    if isinstance(isil, str) and "({})".format(isil) in lookup_sameAs:
         return isil
     elif isinstance(isil, list):
         for item in isil:
-            if item in isil2sameAs:
+            if "({})".format(item) in lookup_sameAs:
                 return item
 
 
@@ -698,40 +697,51 @@ def get_subfield(jline, key, entity):
 def getsameAs(jline, keys, entity):
     """
     produces schema.org/sameAs node out of the MARC21-Record
-    for KXP and DNB
+    for KXP, DNB, RISM and others.
     """
     sameAs = []
+    raw_data = set()
+    data = []
     for key in keys:
-        data = getmarc(jline, key, entity)
-        if isinstance(data, str):
-            data = [data]
-        if isinstance(data, list):
-            for elem in data:
-                if "DE-576" not in elem:  # ignore old SWB id for root SameAs
-                    data = gnd2uri(elem)
-                    if data and isinstance(data, str):
-                        data = [data]
-                    if isinstance(data, list):
-                        for elem in data:
-                            if elem and elem.startswith("http"):
-                                sameAs.append({"@id": elem,
-                                               "publisher": {
-                                                   "@id": "data.slub-dresden.de", },
-                                               "isBasedOn": {
-                                                   "@type": "Dataset",
-                                                   "@id": "",
-                                               }
-                                               })
-    for n, item in enumerate(sameAs):
-        if "d-nb.info" in item["@id"]:
-            sameAs[n]["publisher"]["preferredName"] = "Deutsche Nationalbibliothek"
-            sameAs[n]["publisher"]["@id"] = "https://data.slub-dresden.de/organizations/514366265"
-            sameAs[n]["publisher"]["abbr"] = "DNB"
-        elif "swb.bsz-bw.de" in item["@id"]:
-            sameAs[n]["publisher"]["preferredName"] = "K10Plus"
-            sameAs[n]["publisher"]["@id"] = "https://data.slub-dresden.de/organizations/103302212"
-            sameAs[n]["publisher"]["abbr"] = "KXP"
+        if key == "016":  # 016 has ISIL in 016$2 and ID in 016$a.
+            marc_data = getmarc(jline, key, entity)
+            if isinstance(marc_data,list):
+                for indicator_level in marc_data:
+                    for _ind in indicator_level:
+                        sset = {}
+                        for subfield_dict in indicator_level[_ind]:
+                            for k,v in subfield_dict.items():
+                                sset[k] = v
+                    if sset.get("a") and sset.get("2"):
+                        data = litter(data, "({}){}".format(sset["2"], sset["a"]))
+        elif key == "035..a":  # 035$a has already both in $a, so we're fine
+            data = litter(data, getmarc(jline, key, entity))
+    if isinstance(data, str):
+        data = [data]
+    if isinstance(data, list):
+        for elem in data:
+            if elem[0:8] in lookup_sameAs:
+                data = gnd2uri(elem)
+                newSameAs = dict(lookup_sameAs[elem[0:8]])
+                newSameAs["@id"] = data
+                newSameAs["isBasedOn"] = {"@type": "Dataset", "@id": ""}
+                sameAs.append(newSameAs)
     return sameAs
+
+def handle_identifier(jline, key, entity):
+    ids = []
+    data = getmarc(jline, key, entity)
+    for _id in data:
+        id_obj = {"@type": "PropertyValue"}
+        id_obj["propertyID"] = _id[1:7]
+        id_obj["value"] = _id[8:]
+        if "DE-627" in id_obj["propertyID"]:
+            id_obj["name"] = "K10Plus-ID"
+            ids.append(id_obj)
+        elif "DE-576" in id_obj["propertyID"]:
+            id_obj["name"] = "SWB-ID"
+            ids.append(id_obj)
+    return ids
 
 
 def startDate(jline, key, entity):
@@ -985,36 +995,10 @@ def getav_katalog(record, key, entity):
                     "offeredBy": {
                         "@id": "https://data.slub-dresden.de/organizations/191800287",
                         "@type": "Library",
-                        "name": isil2sameAs.get(bc),
+                        "name": "Sächsische Landesbibliothek – Staats- und Universitätsbibliothek Dresden",
                         "branchCode": "DE-14"
                     },
                     "availability": "https://katalog.slub-dresden.de/id/0-{}".format(swb_ppn)
-                })
-    if retOffers:
-        return retOffers
-
-
-def getav(record, key, entity):
-    """
-    produce a link to the UBLeipzig DAIA/PAIA for availability information
-    """
-    retOffers = list()
-    offers = getmarc(record, [0], entity)
-    ppn = getmarc(record, key[1], entity)
-    if isinstance(offers, str):
-        offers = [offers]
-    if ppn and isinstance(offers, list):
-        for offer in offers:
-            if offer in isil2sameAs:
-                retOffers.append({
-                    "@type": "Offer",
-                    "offeredBy": {
-                        "@id": "https://data.finc.info/resource/organisation/"+offer,
-                        "@type": "Library",
-                        "name": isil2sameAs.get(offer),
-                        "branchCode": offer
-                    },
-                    "availability": "http://data.ub.uni-leipzig.de/item/wachtl/"+offer+":ppn:"+ppn
                 })
     if retOffers:
         return retOffers
@@ -1351,20 +1335,14 @@ def process_line(jline, index):
                 else:
                     mapline[key] = litter(mapline.get(key), value)
         if mapline:
-            if "publisherImprint" in mapline:
-                mapline["@context"] = list(
-                    [mapline.pop("@context"), URIRef(u'http://bib.schema.org/')])
-            if "isbn" in mapline:
-                mapline["@type"] = URIRef(u'http://schema.org/Book')
-            if "issn" in mapline:
-                mapline["@type"] = URIRef(
-                    u'http://schema.org/CreativeWorkSeries')
             if index:
                 mapline["isBasedOn"] = target_id+"source/" + \
                     index+"/"+getmarc(jline, "001", None)
             if isinstance(mapline.get("sameAs"), list):
                 for n, sameAs in enumerate(mapline["sameAs"]):
                     mapline["sameAs"][n]["isBasedOn"]["@id"] = mapline["isBasedOn"]
+                    if mapline["sameAs"][n].get("publisher") and mapline["sameAs"][n]["publisher"]["abbr"] == "BSZ":
+                        mapline["sameAs"][n]["@id"] = "https://swb.bsz-bw.de/DB=2.1/PPNSET?PPN={}".format(getmarc(jline, "001", None))
             return {entity: single_or_multi(removeNone(removeEmpty(mapline)), entity)}
 
 
@@ -1441,16 +1419,13 @@ entities = {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: ["001"]},
-        "single:dateCreated": {handle_dateCreated: ["008"]},
-        #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
-        # for SLUB via katalogbeta
+        "multi:identifier": {handle_identifier: ["035..a"]},
         "single:offers": {getav_katalog: ["924..b", "001"]},
         "single:_isil": {getisil: ["003", "852..a", "924..b"]},
         "single:_ppn": {getmarc: "001"},
         "single:_sourceID": {getmarc: "980..b"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["016", "035..a"]},
         "single:preferredName": {getName: ["245..a", "245..b"]},
         "single:nameShort": {getAlternateNames: "245..a"},
         "single:nameSub": {getAlternateNames: "245..b"},
@@ -1477,7 +1452,7 @@ entities = {
         "multi:locationCreated": {get_subfield_if_4: "551^4:orth"},
         "multi:relatedTo": {relatedTo: "500..0"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
-        "multi:description": {getmarc: ["500..a", "520..a"]},
+        "multi:description": {getmarc: ["520..a"]},
         "multi:mentions": {get_subfield: "689"},
         "multi:relatedEvent": {get_subfield: "711"},
         "single:physical_description": {get_physical: ["300","533"]},
@@ -1494,6 +1469,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
         "single:preferredName": {getName: ["100..t", "110..t", "130..t", "111..t", "130..a"]},
@@ -1527,6 +1503,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
@@ -1553,6 +1530,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1575,6 +1553,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1594,6 +1573,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1617,6 +1597,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
