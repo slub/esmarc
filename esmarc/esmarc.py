@@ -1516,7 +1516,7 @@ entities = {
         "single:reproductionType": {getmarc: "533..a"},
         "single:editionSequence": {geteditionSequence: "362"},
         "single:cartographicData": {get_cartData: "255"},
-        "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "535", "538", "546", "555", "561", "563", "937"]}
+        "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
