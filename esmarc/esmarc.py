@@ -1273,13 +1273,10 @@ def get_footnotes(record, keys, entity):
                         for k,v in subfield_dict.items():
                             sset[k] = litter(sset.get(k),v)
                     all_subfieldsets[key].append(sset)
-        else:
-            eprint(marc_data)
     all_subfieldsets = removeEmpty(all_subfieldsets)
     for key, rawDataArray in all_subfieldsets.items():
         for rawData in rawDataArray:
             item = {}
-            eprint(key,rawData)
             item["@type"] = footnotes_lookups[key]["@type"]
             for k, v in rawData.items():
                 if footnotes_lookups[key].get(k):
