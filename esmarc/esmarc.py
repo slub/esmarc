@@ -15,7 +15,7 @@ import datetime
 import dateparser
 import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs
+from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups
 
 entities = None
 base_id = None
@@ -728,6 +728,7 @@ def getsameAs(jline, keys, entity):
                 sameAs.append(newSameAs)
     return sameAs
 
+
 def handle_identifier(jline, key, entity):
     ids = []
     data = getmarc(jline, key, entity)
@@ -880,7 +881,7 @@ def datePublished(jline, key, entity):
         return handle_260(twosixfour)
     if not fivethreethree and not twosixfour and fivethreefour:
         return handle_260(zerozeroeight[7:11])
-    
+
 
 def dateOriginalPublished(jline, key, entity):
     """
@@ -893,7 +894,7 @@ def dateOriginalPublished(jline, key, entity):
         return handle_260(twosixfour)
     if fivethreefour:
         return handle_260(fivethreefour)
-    
+
 
 def parseDate(toParsedDate):
     """
@@ -920,6 +921,7 @@ def parseDate(toParsedDate):
         elif ddp_obj.period == "time":
             strf_string = "%Y-%m-%d"
         return parsedDate.strftime(strf_string)
+
 
 def handle_260(date):
     """
@@ -1251,6 +1253,61 @@ def get_cartData(record, key, entity):
         return data
 
 
+def get_footnotes(record, keys, entity):
+    """
+    get additionalInfo based on the footnotes found in the MARC21-Records
+    """
+    data = []
+    all_subfieldsets = {}
+    for key in keys:
+        marc_data = getmarc(record, key, entity)
+        if marc_data:
+            all_subfieldsets[key] = []
+        if isinstance(marc_data, dict):
+            marc_data = [marc_data]
+        if isinstance(marc_data, list):
+            for indicator_level in marc_data:
+                for _ind in indicator_level:
+                    sset = {}
+                    for subfield_dict in indicator_level[_ind]:
+                        for k,v in subfield_dict.items():
+                            sset[k] = litter(sset.get(k),v)
+                    all_subfieldsets[key].append(sset)
+    all_subfieldsets = removeEmpty(all_subfieldsets)
+    for key, rawDataArray in all_subfieldsets.items():
+        for rawData in rawDataArray:
+            item = {}
+            item["@type"] = footnotes_lookups[key]["@type"]
+            for k, v in rawData.items():
+                if footnotes_lookups[key].get(k):
+                    item[footnotes_lookups[key][k]] = v
+                if k == '0':
+                    if isinstance(v, str):
+                        v = [v]
+                    for _id in v:
+                        if _id.startswith("(DE-627"):
+                            item["@id"] = "https://data.slub-dresden.de/topics/{}".format(_id[8:])
+                    item["sameAs"] = gnd2uri(v)
+            if key == "937":
+                if "d" in rawData or "e" in rawData or "f" in rawData:
+                    item["@type"] = "instrumentationNote"
+                    item["instrumentation"] = item.pop("description")
+                concat_values = []
+                for concat_key in ['a','b','c','d','e','f']:
+                    if concat_key in rawData:
+                        concat_values.append(rawData[concat_key])
+                item["description"] = "; ".join(concat_values)
+            if key == "502":
+                concat_values = []
+                for concat_key in ['a','b','c','d']:
+                    if concat_key in rawData:
+                        concat_values.append(rawData[concat_key])
+                    item["description"] = ", ".join(concat_values)
+            if len(item) > 1:
+                data.append(item)
+    return data
+
+
 def traverse(dict_or_list, path):
     """
     iterate through a python dict or list, yield all the keys/values
@@ -1460,7 +1517,8 @@ entities = {
         "single:editionStatement": {geteditionStatement: "250"},
         "single:reproductionType": {getmarc: "533..a"},
         "single:editionSequence": {geteditionSequence: "362"},
-        "single:cartographicData": {get_cartData: "255"}
+        "single:cartographicData": {get_cartData: "255"},
+        "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
