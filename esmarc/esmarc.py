@@ -1291,6 +1291,7 @@ def get_footnotes(record, keys, entity):
             if key == "937":
                 if "d" in rawData or "e" in rawData or "f" in rawData:
                     item["@type"] = "instrumentationNote"
+                    item["instrumentation"] = item.pop("description")
                 concat_values = []
                 for concat_key in ['a','b','c','d','e','f']:
                     if concat_key in rawData:
@@ -1302,7 +1303,8 @@ def get_footnotes(record, keys, entity):
                     if concat_key in rawData:
                         concat_values.append(rawData[concat_key])
                     item["description"] = ", ".join(concat_values)
-            data.append(item)
+            if len(item) > 1:
+                data.append(item)
     return data
 
 
