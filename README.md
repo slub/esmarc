@@ -1,3 +1,5 @@
+<img alt="EFRE-Lod logo" src="https://raw.githubusercontent.com/slub/data.slub-dresden.de/master/assets/images/EFRE_EU_quer_2015_rgb_engl.svg" width="300" >
+
 # Installation
 
 run:

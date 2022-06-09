@@ -13,8 +13,9 @@ import re
 import gzip
 import datetime
 import dateparser
+import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from swb_fix import marc2relation, isil2sameAs, map_entities, map_types, rolemapping_en
+from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups
 
 entities = None
 base_id = None
@@ -30,10 +31,8 @@ def parse_cli_args():
     parser = argparse.ArgumentParser(
         description='Entitysplitting/Recognition of MARC-Records')
     parser.add_argument(
-        '-host', type=str, help='hostname or IP-Address of the ElasticSearch-node to use. If None we try to read ldj from stdin.')
-    parser.add_argument('-port', type=int, default=9200,
-                        help='Port of the ElasticSearch-node to use, default is 9200.')
-    parser.add_argument('-type', type=str, help='ElasticSearch Type to use')
+        '-host', type=str, help='hostname or IP-Address and of the ElasticSearch-node to use.')
+    parser.add_argument('-type', type=str, default="_doc", help='ElasticSearch Type to use')
     parser.add_argument('-index', type=str, help='ElasticSearch Index to use')
     parser.add_argument(
         '-id', type=str, help='map single document, given by id')
@@ -45,16 +44,14 @@ def parse_cli_args():
     parser.add_argument('-debug', action="store_true",
                         help='Dump processed Records to stdout (mostly used for debug-purposes)')
     parser.add_argument(
-        '-server', type=str, help="use http://host:port/index/type/id?pretty syntax. overwrites host/port/index/id/pretty")
-    parser.add_argument('-pretty', action="store_true",
-                        default=False, help="output tabbed json")
+        '-server', type=str, help="use http://host:port/index/type/id syntax. overwrites host:port/index/id")
     parser.add_argument('-w', type=int, default=8,
                         help="how many processes to use, too many could overload the elasticsearch")
     parser.add_argument('-idfile', type=str,
                         help="path to a file with IDs to process")
     parser.add_argument('-query', type=json.loads, default={},
                         help='prefilter the data based on an elasticsearch-query')
-    parser.add_argument('-base_id_src', type=str, default="http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN=",
+    parser.add_argument('-base_id_src', type=str, default="https://opac.k10plus.de/DB=2.299/PPNSET?PPN=",
                         help="set up which base_id to use for sameAs. e.g. https://d-nb.info/gnd/xxx")
     parser.add_argument('-target_id', type=str, default="https://data.slub-dresden.de/",
                         help="set up which target_id to use for @id. e.g. http://data.finc.info")
@@ -105,7 +102,7 @@ def main(elastic=None,
         pool.close()
         pool.join()
     else:  # oh noes, no elasticsearch input-setup. exiting.
-        eprint("No -host/-port/-index or -server specified, exiting\n")
+        eprint("No -host:port/-index or -server specified, exiting\n")
         exit(-1)
 
 
@@ -123,7 +120,7 @@ def uniq(lst):
 
 def handlesex(record, key, entity):
     """
-    return the determined sex (not gender), found in the MARC21 code
+    return the determined sex (not gender), found in the MARC21 record
     """
     for v in key:
         marcvalue = getmarc(v, record, entity)
@@ -157,21 +154,21 @@ def gnd2uri(string):
                     ret.append(gnd2uri(st))
                 return ret
             elif isinstance(string, str):   # added .upper
-                return uri2url(string.split(')')[0][1:], string.split(')')[1].upper())
+                return uri2url("({})".format(string.split(')')[0][1:]), string.split(')')[1].upper())
     except:
         return
 
 
 def uri2url(isil, num):
     """
-    Transforms a URI like .../1231111151 to https://d-nb.info/gnd/1231111151,
-    not only GNDs, also SWB, GBV, configureable over isil2sameAs in swb_fix.py
+    Transforms e.g. .../1231111151 to https://d-nb.info/gnd/1231111151,
+    not only GNDs, also SWB, GBV, configureable over lookup_sameAs lookup table
+    in swb_fix.py
     """
-
-    if isil and num and isil in isil2sameAs:
-        return str(isil2sameAs.get(isil)+num)
-    # else:
-        # return str("("+isil+")"+num)    #bugfix for isil not be able to resolve for sameAs, so we give out the identifier-number
+    if isil == "(DE-576)":
+        return None
+    if isil and num and isil in lookup_sameAs:
+        return "{}{}".format(lookup_sameAs[isil]["@id"],num)
 
 
 def id2uri(string, entity):
@@ -190,7 +187,7 @@ def id2uri(string, entity):
 
 def getid(record, regex, entity):
     """
-    wrapper function for schema.org mapping for id2uri
+    wrapper function for schema.org/identifier mapping for id2uri
     """
     _id = getmarc(record, regex, entity)
     if _id:
@@ -202,17 +199,17 @@ def getisil(record, regex, entity):
     get the ISIL of the record
     """
     isil = getmarc(record, regex, entity)
-    if isinstance(isil, str) and isil in isil2sameAs:
+    if isinstance(isil, str) and "({})".format(isil) in lookup_sameAs:
         return isil
     elif isinstance(isil, list):
         for item in isil:
-            if item in isil2sameAs:
+            if "({})".format(item) in lookup_sameAs:
                 return item
 
 
 def getnumberofpages(record, regex, entity):
     """
-    get's the number of pages and sanitizes the field
+    get the number of pages and sanitizes the field into an atomar integer
     """
     nop = getmarc(record, regex, entity)
     try:
@@ -234,7 +231,7 @@ def getnumberofpages(record, regex, entity):
 
 def getgenre(record, regex, entity):
     """
-    gets the genre and builgs a genre node out of it
+    gets the genre and builds a schema.org/genre node out of it
     """
     genre = getmarc(record, regex, entity)
     if genre:
@@ -244,7 +241,7 @@ def getgenre(record, regex, entity):
 
 def getisbn(record, regex, entity):
     """
-    get's the ISBN and sanitizes it
+    gets the ISBN and sanitizes it
     """
     isbns = getmarc(record, regex, entity)
     if isinstance(isbns, str):
@@ -257,7 +254,6 @@ def getisbn(record, regex, entity):
                 for part in isbn.rsplit(" "):
                     if isint(part):
                         isbns[i] = part
-
     if isbns:
         retarray = []
         for isbn in isbns:
@@ -268,7 +264,7 @@ def getisbn(record, regex, entity):
 
 def getmarc(record, regex, entity):
     """
-    get's the in regex specified attribute from a Marc Record
+    gets the in regex specified attribute from a Marc Record
     """
     if "+" in regex:
         marcfield = regex[:3]
@@ -308,10 +304,11 @@ def getmarc(record, regex, entity):
                 ret = list(uniq(ret))
             return ArrayOrSingleValue(ret)
 
-# generator object to get marc values like "240.a" or "001". yield is used bc can be single or multi
-
 
 def getmarcvalues(record, regex, entity):
+    """
+    generator object for getmarc(), using a hardcoded algorithm
+    """
     if len(regex) == 3 and regex in record:
         yield record.get(regex)
     else:
@@ -333,7 +330,7 @@ def getmarcvalues(record, regex, entity):
 
 def handle_about(jline, key, entity):
     """
-    produces schema.org/about: nodes based on RVK, DDC and GND subjects
+    produces schema.org/about nodes based on RVK, DDC and GND subjects
     """
     ret = []
     for k in key:
@@ -410,7 +407,7 @@ def handle_single_rvk(data):
 
 def relatedTo(jline, key, entity):
     """
-    produces some relatedTo and other nodes based on Marc-Relator Codes
+    produces some relatedTo and other nodes based on GND-MARC21-Relator Codes
     """
     # e.g. split "551^4:orta" to 551 and orta
     marcfield = key[:3]
@@ -501,7 +498,7 @@ def relatedTo(jline, key, entity):
 
 def get_subfield_if_4(jline, key, entity):
     """
-    get's subfield of marc-Records and builds some nodes out of them if a clause is statisfied
+    gets subfield of marc-Records and builds some nodes out of them if a clause is statisfied
     """
     # e.g. split "551^4:orta" to 551 and orta
     marcfield = key.rsplit("^")[0]
@@ -529,7 +526,8 @@ def get_subfield_if_4(jline, key, entity):
 
 def get_subfields(jline, key, entity):
     """
-    wrapper-function for get_subfield for multi value
+    wrapper-function for get_subfield for multi value:
+    reads some subfield information and builds some nodes out of them, needs an entity mapping to work
     """
     data = []
     if isinstance(key, list):
@@ -610,8 +608,6 @@ def handleHasPart(jline, keys, entity):
 def get_subfield(jline, key, entity):
     """
     reads some subfield information and builds some nodes out of them, needs an entity mapping to work
-
-    whenever you call get_subfield add the MARC21 field to the if/elif/else switch/case thingy with the correct MARC21 field->entity mapping
     """
     keymap = {"100": "persons",
               "700": "persons",
@@ -700,45 +696,59 @@ def get_subfield(jline, key, entity):
 
 def getsameAs(jline, keys, entity):
     """
-    produces sameAs information out of the record
+    produces schema.org/sameAs node out of the MARC21-Record
+    for KXP, DNB, RISM and others.
     """
     sameAs = []
+    raw_data = set()
+    data = []
     for key in keys:
-        data = getmarc(jline, key, entity)
-        if isinstance(data, str):
-            data = [data]
-        if isinstance(data, list):
-            for elem in data:
-                if "DE-576" not in elem:  # ignore old SWB id for root SameAs
-                    data = gnd2uri(elem)
-                    if data and isinstance(data, str):
-                        data = [data]
-                    if isinstance(data, list):
-                        for elem in data:
-                            if elem and elem.startswith("http"):
-                                sameAs.append({"@id": elem,
-                                               "publisher": {
-                                                   "@id": "data.slub-dresden.de", },
-                                               "isBasedOn": {
-                                                   "@type": "Dataset",
-                                                   "@id": "",
-                                               }
-                                               })
-    for n, item in enumerate(sameAs):
-        if "d-nb.info" in item["@id"]:
-            sameAs[n]["publisher"]["preferredName"] = "Deutsche Nationalbibliothek"
-            sameAs[n]["publisher"]["@id"] = "https://data.slub-dresden.de/organizations/514366265"
-            sameAs[n]["publisher"]["abbr"] = "DNB"
-        elif "swb.bsz-bw.de" in item["@id"]:
-            sameAs[n]["publisher"]["preferredName"] = "K10Plus"
-            sameAs[n]["publisher"]["@id"] = "https://data.slub-dresden.de/organizations/103302212"
-            sameAs[n]["publisher"]["abbr"] = "KXP"
+        if key == "016":  # 016 has ISIL in 016$2 and ID in 016$a.
+            marc_data = getmarc(jline, key, entity)
+            if isinstance(marc_data,list):
+                for indicator_level in marc_data:
+                    for _ind in indicator_level:
+                        sset = {}
+                        for subfield_dict in indicator_level[_ind]:
+                            for k,v in subfield_dict.items():
+                                sset[k] = v
+                    if sset.get("a") and sset.get("2"):
+                        data = litter(data, "({}){}".format(sset["2"], sset["a"]))
+        elif key == "035..a":  # 035$a has already both in $a, so we're fine
+            data = litter(data, getmarc(jline, key, entity))
+    if isinstance(data, str):
+        data = [data]
+    if isinstance(data, list):
+        for elem in data:
+            if elem[0:8] in lookup_sameAs:
+                data = gnd2uri(elem)
+                newSameAs = dict(lookup_sameAs[elem[0:8]])
+                newSameAs["@id"] = data
+                newSameAs["isBasedOn"] = {"@type": "Dataset", "@id": ""}
+                sameAs.append(newSameAs)
     return sameAs
+
+
+def handle_identifier(jline, key, entity):
+    ids = []
+    data = getmarc(jline, key, entity)
+    for _id in data:
+        id_obj = {"@type": "PropertyValue"}
+        id_obj["propertyID"] = _id[1:7]
+        id_obj["value"] = _id[8:]
+        if "DE-627" in id_obj["propertyID"]:
+            id_obj["name"] = "K10Plus-ID"
+            ids.append(id_obj)
+        elif "DE-576" in id_obj["propertyID"]:
+            id_obj["name"] = "SWB-ID"
+            ids.append(id_obj)
+    return ids
 
 
 def startDate(jline, key, entity):
     """
-    calls marc_dates with the correct key for a date-mapping
+    calls marc_dates with the correct key (start) for a date-mapping
+    produces an date-Object for the startDate-field
     """
     extra_key = ""
     if "^" in key:
@@ -753,7 +763,8 @@ def startDate(jline, key, entity):
 
 def endDate(jline, key, entity):
     """
-    calls marc_dates with the correct key for a date-mapping
+    calls marc_dates with the correct key (end) for a date-mapping
+    produces an date-object for the endDate field
 
     """
     datekey_list = ""
@@ -806,8 +817,8 @@ def marc_dates(record, entity, event, datekey_list):
 def dateToEvent(date, schemakey):
     """
     return birthDate and deathDate schema.org attributes
-
-    don't return deathDate if the person is still alive (determined if e.g. the date looks like "1979-")
+    don't return deathDate if the person is still alive according to the data
+    (determined if e.g. the date looks like "1979-")
     """
     date = ArrayOrSingleValue(date)
     if not date:
@@ -857,6 +868,9 @@ def dateToEvent(date, schemakey):
 
 
 def datePublished(jline, key, entity):
+    """
+    reads different MARC21 Fields to determine when the entity behind this record got published
+    """
     fivethreethree = getmarc(jline, "533.__.d", entity)
     twosixfour = getmarc(jline, "264.*.c", entity)
     fivethreefour = getmarc(jline, "534.__.c", entity)
@@ -867,9 +881,12 @@ def datePublished(jline, key, entity):
         return handle_260(twosixfour)
     if not fivethreethree and not twosixfour and fivethreefour:
         return handle_260(zerozeroeight[7:11])
-    
+
 
 def dateOriginalPublished(jline, key, entity):
+    """
+    reads different MARC21 Fields to determine when the entity behind this record got published originally
+    """
     fivethreethree = getmarc(jline, "533.__.d", entity)
     twosixfour = getmarc(jline, "264.*.c", entity)
     fivethreefour = getmarc(jline, "534.__.c", entity)
@@ -877,9 +894,12 @@ def dateOriginalPublished(jline, key, entity):
         return handle_260(twosixfour)
     if fivethreefour:
         return handle_260(fivethreefour)
-    
+
 
 def parseDate(toParsedDate):
+    """
+    use scrapehubs dateParser to get an Python dateobject out of pure MARC21-Rubbish
+    """
     if isinstance(toParsedDate, list):
         toParsedDate = toParsedDate[0]
     if "[" in toParsedDate and "]" in toParsedDate:
@@ -901,6 +921,7 @@ def parseDate(toParsedDate):
         elif ddp_obj.period == "time":
             strf_string = "%Y-%m-%d"
         return parsedDate.strftime(strf_string)
+
 
 def handle_260(date):
     """
@@ -945,7 +966,7 @@ def getgeo(arr):
 
 def getGeoCoordinates(record, key, entity):
     """
-    get the geographic coordinates of a place from its Marc21 authority Record
+    get the geographic coordinates of an entity from the corresponding MARC21 authority Record
     """
     ret = {}
     for k, v in key.items():
@@ -960,7 +981,7 @@ def getGeoCoordinates(record, key, entity):
 
 def getav_katalog(record, key, entity):
     """
-    produce a link to the katalogbeta for availability information
+    produce a link to katatalog.slub-dresden.de for availability information
     """
     retOffers = list()
     swb_ppn = getmarc(record, key[1], entity)
@@ -976,36 +997,10 @@ def getav_katalog(record, key, entity):
                     "offeredBy": {
                         "@id": "https://data.slub-dresden.de/organizations/191800287",
                         "@type": "Library",
-                        "name": isil2sameAs.get(bc),
+                        "name": "Sächsische Landesbibliothek – Staats- und Universitätsbibliothek Dresden",
                         "branchCode": "DE-14"
                     },
                     "availability": "https://katalog.slub-dresden.de/id/0-{}".format(swb_ppn)
-                })
-    if retOffers:
-        return retOffers
-
-
-def getav(record, key, entity):
-    """
-    produce a link to the UBLeipzig DAIA/PAIA for availability information
-    """
-    retOffers = list()
-    offers = getmarc(record, [0], entity)
-    ppn = getmarc(record, key[1], entity)
-    if isinstance(offers, str):
-        offers = [offers]
-    if ppn and isinstance(offers, list):
-        for offer in offers:
-            if offer in isil2sameAs:
-                retOffers.append({
-                    "@type": "Offer",
-                    "offeredBy": {
-                        "@id": "https://data.finc.info/resource/organisation/"+offer,
-                        "@type": "Library",
-                        "name": isil2sameAs.get(offer),
-                        "branchCode": offer
-                    },
-                    "availability": "http://data.ub.uni-leipzig.de/item/wachtl/"+offer+":ppn:"+ppn
                 })
     if retOffers:
         return retOffers
@@ -1075,6 +1070,9 @@ def getAlternateNames(record, key, entity):
 
 
 def handle_preferredName_topic(record, key, entity):
+    """
+    get the preferredName of an Topic
+    """
     preferredName = ""
     if record.get(key):
         for indicator_level in record[key]:
@@ -1093,7 +1091,7 @@ def handle_preferredName_topic(record, key, entity):
 
 def getpublisher(record, key, entity):
     """
-    get the publish name and the publish place from two different fields to produce a node out of it
+    produces a Publisher-node out of two different MARC21-Fields
     """
     pub_name = getmarc(record, ["260..b", "264..b"], entity)
     pub_place = getmarc(record, ["260..a", "264..a"], entity)
@@ -1117,7 +1115,7 @@ def getpublisher(record, key, entity):
 
 def get_physical(record, key, entity):
     """
-    get physical description according to SLUB JIRA Ticket DMG-1040
+    get the physical description of the entity
     """
     phys_map = {"extent": "300..a",
                 "physical_details": "300..b",
@@ -1132,10 +1130,33 @@ def get_physical(record, key, entity):
     if data:
         return data
 
-     
+
+def get_collection(record, keys, entity):
+    """
+    get the collection description of the entity
+    """
+    data = []
+    for key in keys:
+        value = getmarc(record, key, "resources")
+        if value:
+            if isinstance(value, str):
+                value = [value]
+            for item in value:
+                if key.startswith("084"):
+                    if item in lookup_ssg_fid:
+                        data.append({"preferredName": lookup_ssg_fid[item],
+                                     "abbr": item})
+                if key.startswith("935"):
+                    if item in lookup_coll:
+                        data.append({"preferredName": lookup_coll[item],
+                                     "abbr": item})
+    if data:
+        return data
+
+
 def single_or_multi(ldj, entity):
     """
-    make Fields single or multi valued according to spec 
+    make Fields single or multi valued according to spec defined in the mapping table
     """
     for k in entities[entity]:
         for key, value in ldj.items():
@@ -1163,8 +1184,8 @@ def getentity(record):
 
 def getdateModified(record, key, entity):
     """
-    get the DateModified field from the Marcrecord,
-    date of the last modification of the MarcRecord
+    get the DateModified field from the MARC21-Record,
+    date of the last modification of the MARC21-Record
     """
     date = getmarc(record, key, entity)
     newdate = ""
@@ -1187,7 +1208,7 @@ def getdateModified(record, key, entity):
 
 def handle_dateCreated(record, key, entity):
     """
-    get the dateCreated field from the Marcrecord
+    get the dateCreated field from the MARC21-Record
     """
     date = getmarc(record,key, entity)
     YY = int(date[0:2])
@@ -1264,9 +1285,96 @@ def handle_contributor(record, keys, entity):
     return retObj if retObj else None
 
 
+def geteditionStatement(record, key, entity):
+    a = getmarc(record, "250..a", entity)
+    b = getmarc(record, "250..b", entity)
+    if a and b:
+        return "{}, {}".format(a,b)
+
+
+def geteditionSequence(record, key, entity):
+    if key in record:
+        for indicator_level in record[key]:
+            if "0_" in indicator_level:
+                for item in indicator_level["0_"]:
+                    if "a" in item:
+                        return item["a"]
+
+
+def get_cartData(record, key, entity):
+    scale = getmarc(record, "255..a", entity)
+    projection = getmarc(record, "255..b", entity)
+    coordinates = getmarc(record, "255..c", entity)
+
+    data = {}
+    if scale:
+        data["scale"] = scale
+    if projection:
+        data["projection"] = projection
+    if coordinates:
+        data["coordinates"] = coordinates
+    if data:
+        return data
+
+
+def get_footnotes(record, keys, entity):
+    """
+    get additionalInfo based on the footnotes found in the MARC21-Records
+    """
+    data = []
+    all_subfieldsets = {}
+    for key in keys:
+        marc_data = getmarc(record, key, entity)
+        if marc_data:
+            all_subfieldsets[key] = []
+        if isinstance(marc_data, dict):
+            marc_data = [marc_data]
+        if isinstance(marc_data, list):
+            for indicator_level in marc_data:
+                for _ind in indicator_level:
+                    sset = {}
+                    for subfield_dict in indicator_level[_ind]:
+                        for k,v in subfield_dict.items():
+                            sset[k] = litter(sset.get(k),v)
+                    all_subfieldsets[key].append(sset)
+    all_subfieldsets = removeEmpty(all_subfieldsets)
+    for key, rawDataArray in all_subfieldsets.items():
+        for rawData in rawDataArray:
+            item = {}
+            item["@type"] = footnotes_lookups[key]["@type"]
+            for k, v in rawData.items():
+                if footnotes_lookups[key].get(k):
+                    item[footnotes_lookups[key][k]] = v
+                if k == '0':
+                    if isinstance(v, str):
+                        v = [v]
+                    for _id in v:
+                        if _id.startswith("(DE-627"):
+                            item["@id"] = "https://data.slub-dresden.de/topics/{}".format(_id[8:])
+                    item["sameAs"] = gnd2uri(v)
+            if key == "937":
+                if "d" in rawData or "e" in rawData or "f" in rawData:
+                    item["@type"] = "instrumentationNote"
+                    item["instrumentation"] = item.pop("description")
+                concat_values = []
+                for concat_key in ['a','b','c','d','e','f']:
+                    if concat_key in rawData:
+                        concat_values.append(rawData[concat_key])
+                item["description"] = "; ".join(concat_values)
+            if key == "502":
+                concat_values = []
+                for concat_key in ['a','b','c','d']:
+                    if concat_key in rawData:
+                        concat_values.append(rawData[concat_key])
+                    item["description"] = ", ".join(concat_values)
+            if len(item) > 1:
+                data.append(item)
+    return data
+
+
 def traverse(dict_or_list, path):
     """
-    iterate through a python dict or list, yield all the values
+    iterate through a python dict or list, yield all the keys/values
     """
     iterator = None
     if isinstance(dict_or_list, dict):
@@ -1348,20 +1456,14 @@ def process_line(jline, index):
                 else:
                     mapline[key] = litter(mapline.get(key), value)
         if mapline:
-            if "publisherImprint" in mapline:
-                mapline["@context"] = list(
-                    [mapline.pop("@context"), URIRef(u'http://bib.schema.org/')])
-            if "isbn" in mapline:
-                mapline["@type"] = URIRef(u'http://schema.org/Book')
-            if "issn" in mapline:
-                mapline["@type"] = URIRef(
-                    u'http://schema.org/CreativeWorkSeries')
             if index:
                 mapline["isBasedOn"] = target_id+"source/" + \
                     index+"/"+getmarc(jline, "001", None)
             if isinstance(mapline.get("sameAs"), list):
                 for n, sameAs in enumerate(mapline["sameAs"]):
                     mapline["sameAs"][n]["isBasedOn"]["@id"] = mapline["isBasedOn"]
+                    if mapline["sameAs"][n].get("publisher") and mapline["sameAs"][n]["publisher"]["abbr"] == "BSZ":
+                        mapline["sameAs"][n]["@id"] = "https://swb.bsz-bw.de/DB=2.1/PPNSET?PPN={}".format(getmarc(jline, "001", None))
             return {entity: single_or_multi(removeNone(removeEmpty(mapline)), entity)}
 
 
@@ -1438,16 +1540,13 @@ entities = {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
-        "single:identifier": {getmarc: ["001"]},
-        "single:dateCreated": {handle_dateCreated: ["008"]},
-        #       "single:offers"                    :{getav:["852..a","980..a"]}, for SLUB and UBL via broken UBL DAIA-API
-        # for SLUB via katalogbeta
+        "multi:identifier": {handle_identifier: ["035..a"]},
         "single:offers": {getav_katalog: ["924..b", "001"]},
         "single:_isil": {getisil: ["003", "852..a", "924..b"]},
         "single:_ppn": {getmarc: "001"},
         "single:_sourceID": {getmarc: "980..b"},
         "single:dateModified": {getdateModified: "005"},
-        "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
+        "multi:sameAs": {getsameAs: ["016", "035..a"]},
         "single:preferredName": {getName: ["245..a", "245..b"]},
         "single:nameShort": {getAlternateNames: "245..a"},
         "single:nameSub": {getAlternateNames: "245..b"},
@@ -1474,10 +1573,16 @@ entities = {
         "multi:locationCreated": {get_subfield_if_4: "551^4:orth"},
         "multi:relatedTo": {relatedTo: "500..0"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
-        "multi:description": {getmarc: ["500..a", "520..a"]},
+        "multi:description": {getmarc: ["520..a"]},
         "multi:mentions": {get_subfield: "689"},
         "multi:relatedEvent": {get_subfield: "711"},
-        "single:physical_description": {get_physical: ["300","533"]}
+        "single:physical_description": {get_physical: ["300","533"]},
+        "multi:collection": {get_collection: ["084..a","935..a"]},
+        "single:editionStatement": {geteditionStatement: "250"},
+        "single:reproductionType": {getmarc: "533..a"},
+        "single:editionSequence": {geteditionSequence: "362"},
+        "single:cartographicData": {get_cartData: "255"},
+        "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
@@ -1486,6 +1591,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
         "single:preferredName": {getName: ["100..t", "110..t", "130..t", "111..t", "130..a"]},
@@ -1519,6 +1625,7 @@ entities = {
         "single:identifier": {getmarc: "001"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
 
@@ -1545,6 +1652,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1567,6 +1675,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1586,6 +1695,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1609,6 +1719,7 @@ entities = {
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
         "single:_isil": {getisil: "003"},
+        "single:_ppn": {getmarc: "001"},
         "single:dateModified": {getdateModified: "005"},
         "single:dateCreated": {handle_dateCreated: ["008"]},
         "multi:sameAs": {getsameAs: ["035..a", "670..u"]},
@@ -1624,25 +1735,29 @@ entities = {
 }
 
 def cli():
+    """
+    function for feeding the main-function with commandline-arguments when calling esmarc as standalone program from shell
+    """
     args = parse_cli_args()
     es_kwargs = {}                              # dict to collect kwargs for ESgenerator
+    host = None
+    _type = None
+    id = None
     if args.server:
-        slashsplit = args.server.split("/")
-        host = slashsplit[2].rsplit(":")[0]
-        if isint(args.server.split(":")[2].rsplit("/")[0]):
-            port = args.server.split(":")[2].split("/")[0]
-        _index = args.server.split("/")[3]
-        if len(slashsplit) > 4:
-            _type = slashsplit[4]
-            id = None
-        if len(slashsplit) > 5:
-            _type = slashsplit[4]
-            id = slashsplit[5]
-        else:
-            _type = None
-            id = None
-    if host and port:
-        elastic = elasticsearch.Elasticsearch([{"host": host}], port=port)
+        _parsed_url = urllib.parse.urlparse(args.server)
+        host = "{}://{}".format(_parsed_url.scheme,_parsed_url.netloc)
+        slashsplit = urllib.parse.urlparse(args.server).path.split("/")
+        _index = slashsplit[1]
+        if len(slashsplit) >= 3 and slashsplit[2]:
+            _type = slashsplit[2]
+        if len(slashsplit) >= 4:
+            _type = slashsplit[2]
+            id = slashsplit[3]
+    else:
+        host = args.host
+        _index = args.index
+        _type = args.type
+    elastic = elasticsearch.Elasticsearch(host)
     main(_index=_index, _type=_type, _id=id, _base_id_src=args.base_id_src, debug=args.debug, _target_id=args.target_id, z=args.z, elastic=elastic, query=args.query, idfile=args.idfile, prefix=args.prefix)
 
 
