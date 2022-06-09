@@ -1474,10 +1474,13 @@ def gettitle(record, keys, entity):
                         for k,v in subfield.items():
                             sset[k] = litter(sset.get(k),v)
                     uniformTitle = {}
+                    eprint(sset)
                     if "a" in sset and key in ["130", "240", "730"]:
                         uniformTitle["preferredName"] = sset["a"]
                     if "t" in sset and key in ["700", "710", "711"]:
                         uniformTitle["preferredName"] = sset["t"]
+                    if not uniformTitle.get("preferredName"):
+                        continue
                     if "0" in sset:
                         uniformTitle["sameAs"] = gnd2uri(sset["0"])
                         for n, sameAs in enumerate(uniformTitle["sameAs"]):
