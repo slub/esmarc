@@ -15,7 +15,7 @@ import datetime
 import dateparser
 import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups
+from esmarc.swb_fix import marc2relation, rolemapping_en, rolemapping, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups
 
 entities = None
 base_id = None
