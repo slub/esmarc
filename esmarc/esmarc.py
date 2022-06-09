@@ -20,8 +20,6 @@ from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, 
 entities = None
 base_id = None
 target_id = None
-base_id_delimiter = "="
-# lookup_es=None
 
 
 def parse_cli_args():
@@ -177,7 +175,7 @@ def id2uri(string, entity):
     """
     global target_id
     if string.startswith(base_id):
-        string = string.split(base_id_delimiter)[-1]
+        string = string.split(base_id)[1]
     # if entity=="resources":
     #    return "http://swb.bsz-bw.de/DB=2.1/PPNSET?PPN="+string
     # else:
@@ -1308,6 +1306,198 @@ def get_footnotes(record, keys, entity):
     return data
 
 
+def gettitle(record, keys, entity):
+    """
+    create the title object out of different MARC21 Fields
+    """
+    title_obj = {}
+
+    # Hauptsachtitel:
+    marc_data = getmarc(record, "245", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if isinstance(marc_data, list):
+        for indicator_level in marc_data:
+            for _ind in indicator_level:
+                sset = {}
+                for subfield_dict in indicator_level[_ind]:
+                    for k,v in subfield_dict.items():
+                        sset[k] = litter(sset.get(k),v)
+                title_obj["preferredName"] = ""
+                if sset.get('a'):
+                    title_obj["preferredName"] += sset['a']
+                    title_obj["mainTitle"] = sset['a']
+                if sset.get('b'):
+                    title_obj["preferredName"] += " ; {}".format(sset['b'])
+                    title_obj["subTitle"] = sset['b']
+                if sset.get('c'):
+                    title_obj["preferredName"] += " / {}".format(sset['c'])
+                    title_obj["responsibilityStatement"] = sset['c']
+                if sset.get('n') and sset.get('p'):
+                    title_obj["partStatement"] = "{} / {}".format(sset['n'],sset['p'])
+
+    # Paralleltitel
+    marc_data = getmarc(record, "246", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == '31':
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    p_tit = {"preferredName": "{} / {}".format(sset['a'],sset['b']),
+                             "mainTitle": sset['a'],
+                             "subTitle": sset['b']}
+                    title_obj["parallelTitles"] = litter(title_obj.get("parallelTitles"), p_tit)
+
+    # Zusammenstellungen
+    marc_data = getmarc(record, "249", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if isinstance(marc_data, list):
+        for indicator_level in marc_data:
+            for _ind in indicator_level:
+                sset = {}
+                for subfield_dict in indicator_level[_ind]:
+                    for k,v in subfield_dict.items():
+                        sset[k] = litter(sset.get(k),v)
+                o_part_tit = {}
+                if "a" in sset:
+                    o_part_tit["mainTitle"] = sset["a"]
+                if "b" in sset:
+                    title_obj["subTitle"] = litter(title_obj.get("subTitle"), sset["b"])
+                    o_part_tit["subTitle"] = sset["b"]
+                if "v" in sset:
+                    o_part_tit["responsibilityStatement"] = litter(o_part_tit.get("responsibilityStatement"), sset["v"])
+                if "c" in sset:
+                    o_part_tit["responsibilityStatement"] = litter(o_part_tit.get("responsibilityStatement"), sset["c"])
+                    title_obj["responsibilityStatement"] = litter(title_obj.get("responsibilityStatement"), sset["c"])
+                if "a" and "v" in sset:
+                    o_part_tit["preferredName"] = "{} / {}".format(sset["a"],sset["v"])
+                if o_part_tit:
+                    title_obj["otherPartsTitle"] = litter(title_obj.get("otherPartsTitle"), o_part_tit)
+
+    # Beigefügte Werke
+    addInfo = {}
+    marc_data = getmarc(record, "501.__.a", entity)
+    if marc_data:
+        addInfo["notes"] = marc_data
+    marc_data = getmarc(record, "505", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == '80':
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    e_part_tit = {}
+                    if 'a' in sset:
+                        addInfo["notes"] = litter(addInfo.get("notes"), sset['a'])
+                    if 't' in sset:
+                        e_part_tit["preferredName"] = sset['t']
+                    if 'r' in sset:
+                        e_part_tit["contributor"] = sset['r']
+                    if 'g' in sset:
+                        e_part_tit["note"] = sset['g']
+                    if e_part_tit:
+                        addInfo["enclosedParts"] = litter(addInfo.get("enclosedParts"), e_part_tit)
+    if addInfo:
+        title_obj["additionalInfo"] = addInfo
+
+    # Zeitschriftenkurztitel
+    marc_data = getmarc(record, "210.10.a", entity)
+    if marc_data:
+        title_obj["shortTitle"] = marc_data
+    var_titles = []
+    marc_data = getmarc(record, "246", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == "1_":
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    var_title = {}
+                    if "a" in sset:
+                        var_title["preferredName"] = sset["a"]
+                    if "i" in sset:
+                        var_title["disambiguatingDescription"] = sset["i"]
+                    if var_title:
+                        var_titles.append(var_title)
+    marc_data = getmarc(record, "246.33.a", entity)
+    if marc_data:
+        var_titles.append({"preferredName": marc_data})
+    if var_titles:
+        title_obj["varyingTitles"] = var_titles
+    formerTitles = []
+    marc_data = getmarc(record, "247", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == "10":
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    formerTitle = {}
+                    if "a" in sset:
+                        formerTitle["preferredName"] = sset["a"]
+                    if "f" in sset:
+                        formerTitle["disambiguatingDescription"] = sset["f"]
+                    if formerTitle:
+                        formerTitles.append(formerTitle)
+    if formerTitles:
+        title_obj["formerTitles"] = formerTitles
+
+    # Werktitel
+    uniformTitles = []
+    for key in ["130", "240", "710", "711", "730"]:
+        marc_data = getmarc(record, key, entity)
+        if isinstance(marc_data, dict):
+            marc_data = [marc_data]
+        if marc_data:
+            for indicator_level in marc_data:
+                for indicator, subfields in indicator_level.items():
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    uniformTitle = {}
+                    if "a" in sset and key in ["130", "240", "730"]:
+                        uniformTitle["preferredName"] = sset["a"]
+                    if "t" in sset and key in ["700", "710", "711"]:
+                        uniformTitle["preferredName"] = sset["t"]
+                    if "0" in sset:
+                        uniformTitle["sameAs"] = gnd2uri(sset["0"])
+                        for n, sameAs in enumerate(uniformTitle["sameAs"]):
+                            if not sameAs:
+                                del uniformTitle["sameAs"][n]
+                        if isinstance(uniformTitle["sameAs"], str):
+                            uniformTitle["sameAs"] = [uniformTitle.pop("sameAs")]
+                        if uniformTitle["sameAs"]:
+                            for sameAs in uniformTitle["sameAs"]:
+                                if isinstance(sameAs, str) and sameAs.startswith(base_id):
+                                    uniformTitle["@id"] = id2uri(sameAs.split(base_id)[1], "works")
+                    if uniformTitle:
+                        uniformTitles.append(uniformTitle)
+    if uniformTitles:
+        title_obj["uniformTitles"] = uniformTitles
+
+    if title_obj:
+        return title_obj
+
+
 def traverse(dict_or_list, path):
     """
     iterate through a python dict or list, yield all the keys/values
@@ -1483,6 +1673,7 @@ entities = {
         "single:_sourceID": {getmarc: "980..b"},
         "single:dateModified": {getdateModified: "005"},
         "multi:sameAs": {getsameAs: ["016", "035..a"]},
+        "single:title": {gettitle: ["130", "210", "240", "245", "246", "247", "249", "501", "505", "700", "710", "711", "730"]},
         "single:preferredName": {getName: ["245..a", "245..b"]},
         "single:nameShort": {getAlternateNames: "245..a"},
         "single:nameSub": {getAlternateNames: "245..b"},
