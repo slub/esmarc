@@ -1462,7 +1462,7 @@ def gettitle(record, keys, entity):
 
     # Werktitel
     uniformTitles = []
-    for key in ["130", "240", "710", "711", "730"]:
+    for key in ["130", "240", "700", "710", "711", "730"]:
         marc_data = getmarc(record, key, entity)
         if isinstance(marc_data, dict):
             marc_data = [marc_data]
