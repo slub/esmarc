@@ -1244,7 +1244,7 @@ def handle_contributor(record, keys, entity):
                         ret["contributor"][0]["@id"] = "https://data.slub-dresden.de/events/"
                         ret["contributor"][0]["name"] = ""
                         order = ['a','n','d','c','e','g']
-                    elif key == "100" or key == "700":
+                    elif (key == "100" or key == "700") and not sset.get("t"):
                         ret["contributor"][0]["@type"] = "Person"
                         ret["contributor"][0]["@id"] = "https://data.slub-dresden.de/persons/"
                         ret["contributor"][0]["name"] = ""
@@ -1553,7 +1553,7 @@ entities = {
         "single:alternativeHeadline": {getAlternateNames: ["245..c"]},
         "multi:alternateName": {getAlternateNames: ["240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
         #"multi:author": {get_subfields: ["100", "110"]},
-        "multi:contributor":  {handle_contributor: ["100", "110", "700", "710", "711"]},
+        "multi:contributor":  {handle_contributor: ["100", "110", "111", "700", "710", "711"]},
         "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
         "single:datePublished": {datePublished: ["008", "533", "534", "264"]},
         "single:dateOriginalPublished": {dateOriginalPublished: ["008", "533", "534", "264"]},
