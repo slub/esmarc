@@ -1552,7 +1552,7 @@ entities = {
         "single:nameSub": {getAlternateNames: "245..b"},
         "single:alternativeHeadline": {getAlternateNames: ["245..c"]},
         "multi:alternateName": {getAlternateNames: ["240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
-        "multi:author": {get_subfields: ["100", "110"]},
+        #"multi:author": {get_subfields: ["100", "110"]},
         "multi:contributor":  {handle_contributor: ["100", "110", "700", "710", "711"]},
         "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
         "single:datePublished": {datePublished: ["008", "533", "534", "264"]},
