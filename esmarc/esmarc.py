@@ -1351,11 +1351,11 @@ def gettitle(record, keys, entity):
                         sset[k] = litter(sset.get(k),v)
                 title_obj["preferredName"] = ""
                 if sset.get('a'):
-                    if v246_31_a and v246_31_a in sset['a']:
-                        sset['a'] = sset.pop('a').split(' = ')[0]
                     title_obj["preferredName"] += sset['a']
                     title_obj["mainTitle"] = sset['a']
                 if sset.get('b'):
+                    if v246_31_a and v246_31_a in sset['b']:
+                        sset['b'] = sset.pop('b').split(' = ')[0]
                     if v246_31_b and v246_31_b in sset['b']:
                         sset['b'] = sset.pop('b').split(' : ')[0]
                     title_obj["preferredName"] += " : {}".format(sset['b'])
