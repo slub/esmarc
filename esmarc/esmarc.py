@@ -1481,8 +1481,6 @@ def gettitle(record, keys, entity):
                     e_part_tit = {}
                     if 'a' in sset:
                         var_titles.append({"preferredName": sset['a']})
-    if marc_data:
-        var_titles.append({"preferredName": marc_data})
     if var_titles:
         title_obj["varyingTitles"] = var_titles
     formerTitles = []
