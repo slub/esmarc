@@ -1395,10 +1395,13 @@ def gettitle(record, keys, entity):
                     title_obj["subTitle"] = litter(title_obj.get("subTitle"), sset["b"])
                     o_part_tit["subTitle"] = sset["b"]
                 if "v" in sset:
-                    o_part_tit["responsibilityStatement"] = litter(o_part_tit.get("responsibilityStatement"), sset["v"])
+                    if not o_part_tit.get("responsibilityStatement"):
+                        o_part_tit["responsibilityStatement"] = sset["v"]
                 if "c" in sset:
-                    o_part_tit["responsibilityStatement"] = litter(o_part_tit.get("responsibilityStatement"), sset["c"])
-                    title_obj["responsibilityStatement"] = litter(title_obj.get("responsibilityStatement"), sset["c"])
+                    if not o_part_tit.get("responsibilityStatement"):
+                        o_part_tit["responsibilityStatement"] = sset["c"]
+                    else:
+                        o_part_tit["responsibilityStatement"] += ", {}".format(sset["c"])
                 if "a" and "v" in sset:
                     o_part_tit["preferredName"] = "{} / {}".format(sset["a"],sset["v"])
                 if o_part_tit:
