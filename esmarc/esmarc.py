@@ -1355,9 +1355,9 @@ def gettitle(record, keys, entity):
                     title_obj["mainTitle"] = sset['a']
                 if sset.get('b'):
                     if v246_31_a and v246_31_a in sset['b']:
-                        sset['b'] = sset.pop('b').split(' = ')[0]
+                        sset['b'] = sset.pop('b').replace(' = {}'.format(v246_31_a), "")
                     if v246_31_b and v246_31_b in sset['b']:
-                        sset['b'] = sset.pop('b').split(' : ')[0]
+                        sset['b'] = sset.pop('b').replace(' : {}'.format(v246_31_b), "")
                     title_obj["preferredName"] += " : {}".format(sset['b'])
                     title_obj["subTitle"] = sset['b']
                 if sset.get('n'):
