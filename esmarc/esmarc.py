@@ -1312,6 +1312,32 @@ def gettitle(record, keys, entity):
     """
     title_obj = {}
 
+    v246_31_a = None
+    v246_31_b = None
+    # Paralleltitel
+    marc_data = getmarc(record, "246", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == '31':
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    p_tit = {}
+                    if sset.get('a'):
+                        p_tit["mainTitle"] = sset['a']
+                        v246_31_a = sset['a']
+                    if sset.get('b'):
+                        p_tit["subTitle"] = sset['b']
+                        v246_31_b = sset['b']
+                    if sset.get('a') and sset.get('b'):
+                        p_tit["preferredName"] = "{} : {}".format(sset['a'],sset['b'])
+                    if p_tit:
+                        title_obj["parallelTitles"] = litter(title_obj.get("parallelTitles"), p_tit)
+
     # Hauptsachtitel:
     marc_data = getmarc(record, "245", entity)
     if isinstance(marc_data, dict):
@@ -1325,9 +1351,13 @@ def gettitle(record, keys, entity):
                         sset[k] = litter(sset.get(k),v)
                 title_obj["preferredName"] = ""
                 if sset.get('a'):
+                    if v246_31_a and v246_31_a in sset['a']:
+                        sset['a'] = sset.pop('a').split(' = ')[0]
                     title_obj["preferredName"] += sset['a']
                     title_obj["mainTitle"] = sset['a']
                 if sset.get('b'):
+                    if v246_31_b and v246_31_b in sset['b']:
+                        sset['b'] = sset.pop('b').split(' : ')[0]
                     title_obj["preferredName"] += " : {}".format(sset['b'])
                     title_obj["subTitle"] = sset['b']
                 if sset.get('n'):
@@ -1348,22 +1378,6 @@ def gettitle(record, keys, entity):
     if " = " in title_obj["preferredName"]:
         title_obj["preferredName"] = title_obj.pop("preferredName").split(" = ")[0]
 
-    # Paralleltitel
-    marc_data = getmarc(record, "246", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                if indicator == '31':
-                    sset = {}
-                    for subfield in subfields:
-                        for k,v in subfield.items():
-                            sset[k] = litter(sset.get(k),v)
-                    p_tit = {"preferredName": "{} : {}".format(sset['a'],sset['b']),
-                             "mainTitle": sset['a'],
-                             "subTitle": sset['b']}
-                    title_obj["parallelTitles"] = litter(title_obj.get("parallelTitles"), p_tit)
 
     # Zusammenstellungen
     marc_data = getmarc(record, "249", entity)
