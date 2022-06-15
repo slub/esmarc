@@ -1375,8 +1375,6 @@ def gettitle(record, keys, entity):
                 if sset.get('c'):
                     title_obj["preferredName"] += " / {}".format(sset['c'])
                     title_obj["responsibilityStatement"] = sset['c']
-    if " = " in title_obj["preferredName"]:
-        title_obj["preferredName"] = title_obj.pop("preferredName").split(" = ")[0]
 
 
     # Zusammenstellungen
