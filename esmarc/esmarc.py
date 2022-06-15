@@ -1467,7 +1467,8 @@ def gettitle(record, keys, entity):
                         var_title["disambiguatingDescription"] = sset["i"]
                     if var_title:
                         var_titles.append(var_title)
-    marc_data = getmarc(record, "246", entity)if isinstance(marc_data, dict):
+    marc_data = getmarc(record, "246", entity)
+    if isinstance(marc_data, dict):
         marc_data = [marc_data]
     if marc_data:
         for indicator_level in marc_data:
