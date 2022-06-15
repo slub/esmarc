@@ -1471,8 +1471,8 @@ def gettitle(record, keys, entity):
     if isinstance(marc_data, dict):
         marc_data = [marc_data]
     if marc_data:
+        var_title = []
         for indicator_level in marc_data:
-            var_title = []
             for indicator, subfields in indicator_level.items():
                 if indicator == '33':
                     sset = {}
@@ -1482,6 +1482,7 @@ def gettitle(record, keys, entity):
                     e_part_tit = {}
                     if 'a' in sset:
                         var_title.append(sset['a'])
+        if var_title:
             var_titles.append({"preferredName": var_title})
     if var_titles:
         title_obj["varyingTitles"] = var_titles
