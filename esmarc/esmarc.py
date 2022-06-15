@@ -1478,7 +1478,7 @@ def gettitle(record, keys, entity):
                     if "i" in sset:
                         var_title["disambiguatingDescription"] = sset["i"]
                     if var_title:
-                        var_titles.append(var_title)
+                        var_titles = litter(var_titles, var_title)
     marc_data = getmarc(record, "246", entity)
     if isinstance(marc_data, dict):
         marc_data = [marc_data]
@@ -1493,9 +1493,9 @@ def gettitle(record, keys, entity):
                             sset[k] = litter(sset.get(k),v)
                     e_part_tit = {}
                     if 'a' in sset:
-                        var_title.append(sset['a'])
+                        var_title = litter(var_title, sset['a'])
         if var_title:
-            var_titles.append({"preferredName": var_title})
+            var_titles = litter(var_titles, {"preferredName": var_title})
     if var_titles:
         title_obj["varyingTitles"] = var_titles
     formerTitles = []
