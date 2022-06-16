@@ -1403,7 +1403,10 @@ def gettitle(record, keys, entity):
                     else:
                         o_part_tit["responsibilityStatement"] += ", {}".format(sset["c"])
                 if "a" in sset:
-                    o_part_tit["preferredName"] = "{}".format(" ; ".join(sset["a"]))
+                    if isinstance(sset['a'], list):
+                        o_part_tit["preferredName"] = "{}".format(" ; ".join(sset["a"]))
+                    else:
+                        o_part_tit["preferredName"] = sset['a']
                 if "v" in sset:
                     o_part_tit["preferredName"] += " / {}".format(sset["v"])
                 if o_part_tit:
