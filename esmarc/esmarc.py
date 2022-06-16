@@ -1366,12 +1366,14 @@ def gettitle(record, keys, entity):
                     if isinstance(sset['n'],list):
                         for item in sset['n']:
                             title_obj["preferredName"] += ". {}".format(item)
+                    title_obj["partStatement"] = sset['n']
                 if sset.get('p'):
                     if isinstance(sset['p'],str):
                         sset['p'] = [sset.pop('p')]
                     if isinstance(sset['p'],list):
                         for item in sset['p']:
                             title_obj["preferredName"] += ". {}".format(item)
+                    title_obj["partStatement"] += sset['p']
                 if sset.get('c'):
                     title_obj["preferredName"] += " / {}".format(sset['c'])
                     title_obj["responsibilityStatement"] = sset['c']
