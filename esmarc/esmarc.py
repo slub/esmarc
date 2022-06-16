@@ -1371,7 +1371,7 @@ def gettitle(record, keys, entity):
                         sset['p'] = [sset.pop('p')]
                     for n, item in enumerate(sset['p']):
                         title_obj["partStatement"][n] += item
-                if title_obj["partStatement"]:
+                if title_obj.get("partStatement"):
                     title_obj["preferredName"] += ". {}".format(title_obj["partStatement"])
                 if sset.get('c'):
                     title_obj["preferredName"] += " / {}".format(sset['c'])
