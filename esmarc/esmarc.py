@@ -1362,8 +1362,8 @@ def gettitle(record, keys, entity):
                     title_obj["subTitle"] = sset['b']
                 if sset.get('n'):
                     title_obj["partStatement"] = []
-                    if isinstance(sset['n'],str):
-                        sset['n'] = sset.pop('n')
+                    if isinstance(sset['n'], str):
+                        sset['n'] = [sset.pop('n')]
                     for item in sset['n']:
                         title_obj["partStatement"].append("{}. ".format(item))
                 if sset.get('p'):
