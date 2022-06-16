@@ -1361,19 +1361,18 @@ def gettitle(record, keys, entity):
                     title_obj["preferredName"] += " : {}".format(sset['b'])
                     title_obj["subTitle"] = sset['b']
                 if sset.get('n'):
+                    title_obj["partStatement"] = []
                     if isinstance(sset['n'],str):
-                        sset['n'] = [sset.pop('n')]
-                    if isinstance(sset['n'],list):
-                        for item in sset['n']:
-                            title_obj["preferredName"] += ". {}".format(item)
-                    title_obj["partStatement"] = sset['n']
+                        sset['n'] = sset.pop('n')
+                    for n, item in enumerate(sset['n']):
+                        title_obj["partStatement"][n] = "{}. ".format(item)
                 if sset.get('p'):
                     if isinstance(sset['p'],str):
                         sset['p'] = [sset.pop('p')]
-                    if isinstance(sset['p'],list):
-                        for item in sset['p']:
-                            title_obj["preferredName"] += ". {}".format(item)
-                    title_obj["partStatement"] += sset['p']
+                    for n, item in enumerate(sset['p']):
+                        title_obj["partStatement"][n] += item
+                if title_obj["partStatement"]:
+                    title_obj["preferredName"] += ". {}".format(title_obj["partStatement"])
                 if sset.get('c'):
                     title_obj["preferredName"] += " / {}".format(sset['c'])
                     title_obj["responsibilityStatement"] = sset['c']
