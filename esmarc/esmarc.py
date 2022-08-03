@@ -1280,7 +1280,7 @@ def handle_contributor(record, keys, entity):
                                 role["@id"] = "https://id.loc.gov/vocabulary/relators/{}".format(item)
                                 role["name"] = rolemapping_en[item]
                                 if role:
-                                    ret["Role"].append(role)
+                                    ret["roles"].append(role)
                     retObj.append(ret)
     return retObj if retObj else None
 
