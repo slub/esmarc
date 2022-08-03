@@ -1233,7 +1233,7 @@ def handle_contributor(record, keys, entity):
                             sset[k] = litter(sset.get(k),v)
                     order = None
                     ret = {}
-                    ret["Role"] = []
+                    ret["roles"] = []
                     if (key == "110" and not sset.get("c")) or (key == "710" and not sset.get("t")):
                         ret["@type"] = "Organization"
                         ret["@id"] = "https://data.slub-dresden.de/organizations/"
