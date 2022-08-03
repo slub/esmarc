@@ -1233,7 +1233,6 @@ def handle_contributor(record, keys, entity):
                             sset[k] = litter(sset.get(k),v)
                     order = None
                     ret = {}
-                    ret["roles"] = []
                     if (key == "110" and not sset.get("c")) or (key == "710" and not sset.get("t")):
                         ret["@type"] = "Organization"
                         ret["@id"] = "https://data.slub-dresden.de/organizations/"
@@ -1280,6 +1279,8 @@ def handle_contributor(record, keys, entity):
                                 role["@id"] = "https://id.loc.gov/vocabulary/relators/{}".format(item)
                                 role["name"] = rolemapping_en[item]
                                 if role:
+                                    if not "roles" in ret:
+                                        ret["roles"] = []
                                     ret["roles"].append(role)
                     retObj.append(ret)
     return retObj if retObj else None
