@@ -1233,28 +1233,27 @@ def handle_contributor(record, keys, entity):
                             sset[k] = litter(sset.get(k),v)
                     order = None
                     ret = {}
-                    ret["@type"] = "Role"
-                    ret["contributor"] = [{}]
+                    ret["Role"] = []
                     if (key == "110" and not sset.get("c")) or (key == "710" and not sset.get("t")):
-                        ret["contributor"][0]["@type"] = "Organization"
-                        ret["contributor"][0]["@id"] = "https://data.slub-dresden.de/organizations/"
+                        ret["@type"] = "Organization"
+                        ret["@id"] = "https://data.slub-dresden.de/organizations/"
                         order = ['a','b','g']
                     elif (key == "110" and sset.get("c")) or (key == "711" and not sset.get("t")) or (key == "111"):
-                        ret["contributor"][0]["@type"] = "Event"
-                        ret["contributor"][0]["@id"] = "https://data.slub-dresden.de/events/"
-                        ret["contributor"][0]["name"] = ""
+                        ret["@type"] = "Event"
+                        ret["@id"] = "https://data.slub-dresden.de/events/"
+                        ret["name"] = ""
                         order = ['a','n','d','c','e','g']
                     elif (key == "100" or key == "700") and not sset.get("t"):
-                        ret["contributor"][0]["@type"] = "Person"
-                        ret["contributor"][0]["@id"] = "https://data.slub-dresden.de/persons/"
-                        ret["contributor"][0]["name"] = ""
+                        ret["@type"] = "Person"
+                        ret["@id"] = "https://data.slub-dresden.de/persons/"
+                        ret["name"] = ""
                         if sset.get("a"):
-                            ret["contributor"][0]["name"] += sset["a"]
+                            ret["name"] += sset["a"]
                         if sset.get("b"):
-                            ret["contributor"][0]["name"] += " " +sset["b"]
+                            ret["name"] += " " +sset["b"]
                         if sset.get("c"):
-                            ret["contributor"][0]["name"] += ", " +sset["c"]
-                    if not ret["contributor"][0].get("@id"):
+                            ret["name"] += ", " +sset["c"]
+                    if not ret.get("@id"):
                         continue
                     if sset.get("0"):
                         if isinstance(sset["0"],str):
@@ -1262,25 +1261,26 @@ def handle_contributor(record, keys, entity):
                         if isinstance(sset["0"],list):
                             for item in sset["0"]:
                                 if item.startswith("(DE-627)"):
-                                    ret["contributor"][0]["@id"] += item.split(")")[1]
+                                    ret["@id"] += item.split(")")[1]
                                 if item.startswith("(DE-588)"):
-                                    ret["contributor"][0]["sameAs"] = "https://d-nb.info/gnd/" + item.split(")")[1]
+                                    ret["sameAs"] = "https://d-nb.info/gnd/" + item.split(")")[1]
                     if order:
                         name = ""
                         for char in order:
                             if char in sset:
                                 name += sset[char] + ", "
-                        ret["contributor"][0]["name"] = name[:-2]
+                        ret["name"] = name[:-2]
                     if "4" in sset:
                         if isinstance(sset["4"],str):
-                            ret["@id"] = "https://id.loc.gov/vocabulary/relators/{}".format(sset["4"])
-                            ret["name"] = rolemapping_en[sset["4"]]
-                        elif isinstance(sset["4"],list):
-                            ret["@id"] = []
-                            ret["name"] = []
-                            for role in sset["4"]:
-                                ret["@id"].append("https://id.loc.gov/vocabulary/relators/{}".format(role))
-                                ret["name"].append(rolemapping_en[role])
+                            sset["4"] = [sset["4"]]
+                        if isinstance(sset["4"],list):
+                            for item in sset["4"]:
+                                role = {}
+                                role["@type"] = "Role"
+                                role["@id"] = "https://id.loc.gov/vocabulary/relators/{}".format(item)
+                                role["name"] = rolemapping_en[item]
+                                if role:
+                                    ret["Role"].append(role)
                     retObj.append(ret)
     return retObj if retObj else None
 
