@@ -15,7 +15,7 @@ import datetime
 import dateparser
 import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from esmarc.swb_fix import marc2relation, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups
+from esmarc.swb_fix import marc2relation, rolemapping_en, rolemapping, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups
 
 entities = None
 base_id = None
@@ -1221,6 +1221,71 @@ def handle_dateCreated(record, key, entity):
         return "20{:02d}-{:02d}-{:02d}".format(YY,MM,DD)
 
 
+def handle_contributor(record, keys, entity):
+    retObj = []
+    for key in keys:
+        if key in record:
+            for elem in record.get(key):
+                for indent in elem:
+                    sset = {}
+                    for subfield in elem[indent]:
+                        for k, v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    order = None
+                    ret = {}
+                    if (key == "110" and not sset.get("c")) or (key == "710" and not sset.get("t")):
+                        ret["@type"] = "Organization"
+                        if sset.get("0"):
+                            ret["@id"] = "https://data.slub-dresden.de/organizations/"
+                        order = ['a','b','g']
+                    elif (key == "110" and sset.get("c")) or (key == "711" and not sset.get("t")) or (key == "111"):
+                        ret["@type"] = "Event"
+                        ret["@id"] = "https://data.slub-dresden.de/events/"
+                        ret["name"] = ""
+                        order = ['a','n','d','c','e','g']
+                    elif (key == "100" or key == "700") and not sset.get("t"):
+                        ret["@type"] = "Person"
+                        if sset.get("0"):
+                            ret["@id"] = "https://data.slub-dresden.de/persons/"
+                        ret["name"] = ""
+                        if sset.get("a"):
+                            ret["name"] += sset["a"]
+                        if sset.get("b"):
+                            ret["name"] += " " +sset["b"]
+                        if sset.get("c"):
+                            ret["name"] += ", " +sset["c"]
+                    if order:
+                        name = ""
+                        for char in order:
+                            if char in sset:
+                                name += sset[char] + ", "
+                        ret["name"] = name[:-2]
+                    if sset.get("0"):
+                        if isinstance(sset["0"],str):
+                            sset["0"] = [sset["0"]]
+                        if isinstance(sset["0"],list):
+                            for item in sset["0"]:
+                                if item.startswith("(DE-627)"):
+                                    ret["@id"] += item.split(")")[1]
+                                if item.startswith("(DE-588)"):
+                                    ret["sameAs"] = "https://d-nb.info/gnd/" + item.split(")")[1]
+                    if "4" in sset:
+                        if isinstance(sset["4"],str):
+                            sset["4"] = [sset["4"]]
+                        if isinstance(sset["4"],list):
+                            for item in sset["4"]:
+                                role = {}
+                                role["@type"] = "Role"
+                                role["@id"] = "https://id.loc.gov/vocabulary/relators/{}".format(item)
+                                role["name"] = rolemapping_en[item]
+                                if role:
+                                    if not "roles" in ret:
+                                        ret["roles"] = []
+                                    ret["roles"].append(role)
+                    retObj.append(ret)
+    return retObj if retObj else None
+
+
 def geteditionStatement(record, key, entity):
     a = getmarc(record, "250..a", entity)
     b = getmarc(record, "250..b", entity)
@@ -1488,8 +1553,8 @@ entities = {
         "single:nameSub": {getAlternateNames: "245..b"},
         "single:alternativeHeadline": {getAlternateNames: ["245..c"]},
         "multi:alternateName": {getAlternateNames: ["240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
-        "multi:author": {get_subfields: ["100", "110"]},
-        "multi:contributor": {get_subfields: ["700", "710"]},
+        #"multi:author": {get_subfields: ["100", "110"]},
+        "multi:contributor":  {handle_contributor: ["100", "110", "111", "700", "710", "711"]},
         "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
         "single:datePublished": {datePublished: ["008", "533", "534", "264"]},
         "single:dateOriginalPublished": {dateOriginalPublished: ["008", "533", "534", "264"]},
