@@ -1254,6 +1254,12 @@ def handle_contributor(record, keys, entity):
                             ret["name"] += ", " +sset["c"]
                     if not ret.get("@id"):
                         continue
+                    if order:
+                        name = ""
+                        for char in order:
+                            if char in sset:
+                                name += sset[char] + ", "
+                        ret["name"] = name[:-2]
                     if sset.get("0"):
                         if isinstance(sset["0"],str):
                             sset["0"] = [sset["0"]]
@@ -1263,12 +1269,6 @@ def handle_contributor(record, keys, entity):
                                     ret["@id"] += item.split(")")[1]
                                 if item.startswith("(DE-588)"):
                                     ret["sameAs"] = "https://d-nb.info/gnd/" + item.split(")")[1]
-                    if order:
-                        name = ""
-                        for char in order:
-                            if char in sset:
-                                name += sset[char] + ", "
-                        ret["name"] = name[:-2]
                     if "4" in sset:
                         if isinstance(sset["4"],str):
                             sset["4"] = [sset["4"]]
