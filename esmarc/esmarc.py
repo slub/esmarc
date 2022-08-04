@@ -1254,8 +1254,6 @@ def handle_contributor(record, keys, entity):
                             ret["name"] += " " +sset["b"]
                         if sset.get("c"):
                             ret["name"] += ", " +sset["c"]
-                    if not ret.get("@id"):
-                        continue
                     if order:
                         name = ""
                         for char in order:
