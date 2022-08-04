@@ -1235,7 +1235,8 @@ def handle_contributor(record, keys, entity):
                     ret = {}
                     if (key == "110" and not sset.get("c")) or (key == "710" and not sset.get("t")):
                         ret["@type"] = "Organization"
-                        ret["@id"] = "https://data.slub-dresden.de/organizations/"
+                        if sset.get("0"):
+                            ret["@id"] = "https://data.slub-dresden.de/organizations/"
                         order = ['a','b','g']
                     elif (key == "110" and sset.get("c")) or (key == "711" and not sset.get("t")) or (key == "111"):
                         ret["@type"] = "Event"
@@ -1244,7 +1245,8 @@ def handle_contributor(record, keys, entity):
                         order = ['a','n','d','c','e','g']
                     elif (key == "100" or key == "700") and not sset.get("t"):
                         ret["@type"] = "Person"
-                        ret["@id"] = "https://data.slub-dresden.de/persons/"
+                        if sset.get("0"):
+                            ret["@id"] = "https://data.slub-dresden.de/persons/"
                         ret["name"] = ""
                         if sset.get("a"):
                             ret["name"] += sset["a"]
