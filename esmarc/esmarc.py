@@ -15,7 +15,7 @@ import datetime
 import dateparser
 import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from esmarc.swb_fix import marc2relation, rolemapping_en, rolemapping, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups
+from esmarc.swb_fix import marc2relation, rolemapping_en, rolemapping, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups, lookup_identifiers
 
 entities = None
 base_id = None
@@ -727,20 +727,28 @@ def getsameAs(jline, keys, entity):
     return sameAs
 
 
-def handle_identifier(jline, key, entity):
+def handle_identifier(record, key, entity):
     ids = []
-    data = getmarc(jline, key, entity)
-    for _id in data:
-        id_obj = {"@type": "PropertyValue"}
-        id_obj["propertyID"] = _id[1:7]
-        id_obj["value"] = _id[8:]
-        if "DE-627" in id_obj["propertyID"]:
-            id_obj["name"] = "K10Plus-ID"
-            ids.append(id_obj)
-        elif "DE-576" in id_obj["propertyID"]:
-            id_obj["name"] = "SWB-ID"
-            ids.append(id_obj)
-    return ids
+    marc_data = getmarc(record, key, entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if "2" in sset and "a" in sset:
+                    if sset["2"] in lookup_identifiers:
+                        id_obj = {}
+                        id_obj["@id"] = "{}{}".format(lookup_identifiers[sset["2"]], sset["a"])
+                        id_obj["@type"] = "PropertyValue"
+                        id_obj["propertyID"] = sset["2"]
+                        id_obj["value"] = sset["a"]
+                        ids.append(id_obj)
+    if ids:
+        return ids
 
 
 def startDate(jline, key, entity):
@@ -1433,6 +1441,10 @@ def gettitle(record, keys, entity):
                 if sset.get('p'):
                     if isinstance(sset['p'],str):
                         sset['p'] = [sset.pop('p')]
+                    if not title_obj.get("partStatement"):
+                        title_obj["partStatement"] = []
+                        for item in sset["p"]:
+                            title_obj["partStatement"].append("")
                     for n, item in enumerate(sset['p']):
                         title_obj["partStatement"][n] += item
                 if title_obj.get("partStatement"):
@@ -1802,7 +1814,7 @@ entities = {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
-        "multi:identifier": {handle_identifier: ["035..a"]},
+        "multi:identifier": {handle_identifier: "024"},
         "single:offers": {getav_katalog: ["924..b", "001"]},
         "single:_isil": {getisil: ["003", "852..a", "924..b"]},
         "single:_ppn": {getmarc: "001"},
