@@ -46,6 +46,11 @@ lookup_sameAs = {
     }
 }
 
+lookup_identifiers = {
+    "urn": "https://nbn-resolving.org/",
+    "hdl": "http://hdl.handle.net/",
+    "doi": "http://dx.doi.org/"
+}
 
 footnotes_lookups = {
     "242": {"@type": "eventNote",
