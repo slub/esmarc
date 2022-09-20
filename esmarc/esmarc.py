@@ -1414,7 +1414,7 @@ def get_class(record, keys, entity):
                          "@id": "https://id.loc.gov/authorities/classification",
                          "name": "Library of Congress Classification",
                          "alternateName": "LCC",
-                         "sameAs": "https://de.wikidata.org/wiki/Q621080",
+                         "sameAs": "https://wikidata.org/wiki/Q621080",
                          "CategoryCodes": []}
                 for item in marc_data:
                     if "_0" in item and "a" in item["_0"][0]:
@@ -1445,7 +1445,6 @@ def get_class(record, keys, entity):
                         data = merge_entry(data, entry)
             if key == "084":
                 for item in marc_data:
-                    eprint(marc_data)
                     ind_object = {}
                     for k,v in item.items():
                         ind_object[k] = {}
