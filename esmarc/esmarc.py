@@ -1462,7 +1462,7 @@ def get_class(record, keys, entity):
                         data = merge_entry(data, entry)
                     if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "sdnb":
                         entry = {"@type": "CategoryCodeSet",
-                                 "name": "DDC-Sachgruppen bis 2003",
+                                 "name": "Sachgruppen der DNB bis 2003",
                                  "alternateName": [ "Sachgruppen der DNB bis 2003", "SDNB bis 2003", "Systematik der Deutschen Nationalbibliografie bis 2003", "DNB-Sachgruppen bis 2003", "Sachgruppen der Deutschen Nationalbibliografie bis 2003"],
                                  "sameAs": "https://www.wikidata.org/wiki/Q113660734",
                                  "CategoryCodes": [{"@type": "CategoryCode",
