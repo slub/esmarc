@@ -1491,6 +1491,7 @@ def get_class(record, keys, entity):
                                  "alternateName": ["BKL", "BK"],
                                  "sameAs": "https://www.wikidata.org/entity/Q29938469",
                                  "CategoryCodes": [{"@type": "CategoryCode",
+                                                    "@id": "http://uri.gbv.de/terminology/bk/{}".format(ind_object["__"]['a']),
                                                     "codeValue": ind_object["__"]['a']}]}
                         data = merge_entry(data, entry)
                     if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "rvk":
@@ -1500,6 +1501,7 @@ def get_class(record, keys, entity):
                                  "alternateName": ["RVK", "Regensburger Systematik", "RVKO", "Regensburg RVK", "Regensburg Classification" ],
                                  "sameAs": "http://www.wikidata.org/entity/Q2137453",
                                  "CategoryCodes": [{"@type": "CategoryCode",
+                                                    "@id": "https://rvk.uni-regensburg.de/regensburger-verbundklassifikation-online#notation/{}".format(ind_object["__"]['a']),
                                                     "codeValue": ind_object["__"]['a']}]}
                         data = merge_entry(data, entry)
     return data if data else None
