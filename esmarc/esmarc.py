@@ -1431,7 +1431,7 @@ def get_class(record, keys, entity):
                         entry = {"@type": "CategoryCodeSet",
                                  "name": "Dewey Decimal Classification",
                                  "alternateName": "DDC",
-                                 "sameAs": "http://www.wikidata.org/entity/Q48460",
+                                 "sameAs": "http://www.wikidata.org/wiki/Q48460",
                                  "CategoryCodes": [{"@type": "CategoryCode",
                                                   "codeValue": item["0_"][0]['a']}]}
                         data = merge_entry(data, entry)
@@ -1439,7 +1439,7 @@ def get_class(record, keys, entity):
                         entry = {"@type": "CategoryCodeSet",
                                  "name": "DDC-Sachgruppen der DNB ab 2004",
                                  "alternateName": ["Sachgruppen der DNB ab 2004", "SDNB ab 2004", "Systematik der Deutschen Nationalbibliografie ab 2004", "DNB-Sachgruppen ab 2004", "Sachgruppen der Deutschen Nationalbibliografie ab 2004"],
-                                 "sameAs": "https://www.wikidata.org/entity/Q67011877",
+                                 "sameAs": "https://www.wikidata.org/wiki/Q67011877",
                                  "CategoryCodes": [{"@type": "CategoryCode",
                                                     "codeValue": item["04"][0]['a']}]}
                         data = merge_entry(data, entry)
@@ -1456,7 +1456,7 @@ def get_class(record, keys, entity):
                         entry = {"@type": "CategoryCodeSet",
                                  "name": "Sondersammelgebiets-Nummer",
                                  "alternateName": ["SSG", "SSGN"],
-                                 "sameAs": "https://www.wikidata.org/entity/Q71786666",
+                                 "sameAs": "https://www.wikidata.org/wiki/Q71786666",
                                  "CategoryCodes": [{"@type": "CategoryCode",
                                                     "codeValue": ind_object["__"]['a']}]}
                         data = merge_entry(data, entry)
@@ -1489,7 +1489,7 @@ def get_class(record, keys, entity):
                                  "@id": "http://uri.gbv.de/terminology/bk/",
                                  "name":  "Basisklassifikation",
                                  "alternateName": ["BKL", "BK"],
-                                 "sameAs": "https://www.wikidata.org/entity/Q29938469",
+                                 "sameAs": "https://www.wikidata.org/wiki/Q29938469",
                                  "CategoryCodes": [{"@type": "CategoryCode",
                                                     "@id": "http://uri.gbv.de/terminology/bk/{}".format(ind_object["__"]['a']),
                                                     "codeValue": ind_object["__"]['a']}]}
@@ -1499,7 +1499,7 @@ def get_class(record, keys, entity):
                                  "@id": "https://rvk.uni-regensburg.de/regensburger-verbundklassifikation-online",
                                  "name":  "Regensburger Verbundklassifikation",
                                  "alternateName": ["RVK", "Regensburger Systematik", "RVKO", "Regensburg RVK", "Regensburg Classification" ],
-                                 "sameAs": "http://www.wikidata.org/entity/Q2137453",
+                                 "sameAs": "http://www.wikidata.org/wiki/Q2137453",
                                  "CategoryCodes": [{"@type": "CategoryCode",
                                                     "@id": "https://rvk.uni-regensburg.de/regensburger-verbundklassifikation-online#notation/{}".format(ind_object["__"]['a']),
                                                     "codeValue": ind_object["__"]['a']}]}
