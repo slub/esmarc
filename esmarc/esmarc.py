@@ -1419,6 +1419,7 @@ def get_class(record, keys, entity):
                 for item in marc_data:
                     if "_0" in item and "a" in item["_0"][0]:
                         sub_entry = {"@id": "https://id.loc.gov/authorities/classification/",
+                                     "@type": "CategoryCode",
                                      "codeValue": None}
                         sub_entry["@id"] += item["_0"][0]['a']
                         sub_entry["codeValue"] = item["_0"][0]['a']
