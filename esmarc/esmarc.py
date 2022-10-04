@@ -1399,7 +1399,7 @@ def get_class(record, keys, entity):
                             for sub_sub_item in sub_item:
                                 if entry["CategoryCodes"][0]["codeValue"] == sub_sub_item["codeValue"]:
                                     return data
-                    data[n]["CategoryCodes"].append(entry["CategoryCodes"])
+                    data[n]["CategoryCodes"].append(entry["CategoryCodes"][0])
                     return data
             data.append(entry)
             return data
@@ -1463,7 +1463,7 @@ def get_class(record, keys, entity):
                     if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "sdnb":
                         entry = {"@type": "CategoryCodeSet",
                                  "name": "Sachgruppen der DNB bis 2003",
-                                 "alternateName": [ "Sachgruppen der DNB bis 2003", "SDNB bis 2003", "Systematik der Deutschen Nationalbibliografie bis 2003", "DNB-Sachgruppen bis 2003", "Sachgruppen der Deutschen Nationalbibliografie bis 2003"],
+                                 "alternateName": ["SDNB bis 2003", "Systematik der Deutschen Nationalbibliografie bis 2003", "DNB-Sachgruppen bis 2003", "Sachgruppen der Deutschen Nationalbibliografie bis 2003"],
                                  "sameAs": "https://www.wikidata.org/wiki/Q113660734",
                                  "CategoryCodes": [{"@type": "CategoryCode",
                                                     "codeValue": ind_object["__"]['a']}]}
