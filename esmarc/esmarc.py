@@ -1784,14 +1784,17 @@ def gettitle(record, keys, entity):
     if title_obj:
         return title_obj
 
+
 def get_accessmode(record, key, entity):
     """
     get the accessMode (local, online) of the resource
     """
-    data = {}
     data = getmarc(record, key, entity)
-    eprint(data[0:2])
-    return data
+    if isinstance(data,str):
+        if data[0:2] == "tu" or data[0:2] == "vd":
+            return "local"
+        elif data[0:2] == "cr" or data[0:2] == "cz":
+            return "online"
 
 
 
