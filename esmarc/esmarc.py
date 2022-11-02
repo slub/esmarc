@@ -1366,13 +1366,21 @@ def get_footnotes(record, keys, entity):
                 concat_values = []
                 for concat_key in ['a','b','c','d','e','f']:
                     if concat_key in rawData:
-                        concat_values.append(rawData[concat_key])
+                        if isinstance(rawData[concat_key],list):
+                            for sub_item in rawData[concat_key]:
+                                concat_values.append(sub_item)
+                        else:
+                            concat_values.append(rawData[concat_key])
                 item["description"] = "; ".join(concat_values)
             if key == "502":
                 concat_values = []
                 for concat_key in ['a','b','c','d']:
                     if concat_key in rawData:
-                        concat_values.append(rawData[concat_key])
+                        if isinstance(rawData[concat_key],list):
+                            for sub_item in rawData[concat_key]:
+                                concat_values.append(sub_item)
+                        else:
+                            concat_values.append(rawData[concat_key])
                     item["description"] = ", ".join(concat_values)
             if len(item) > 1:
                 data.append(item)
@@ -1452,7 +1460,6 @@ def get_class(record, keys, entity):
                         for items in v:
                             for subf, val in items.items():
                                 ind_object[k][subf] = val
-                        data = merge_entry(data, entry)
                     if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "ssgn":
                         entry = {"@type": "CategoryCodeSet",
                                  "name": "Sondersammelgebiets-Nummer",
