@@ -1790,7 +1790,7 @@ def get_accessmode(record, key, entity):
     """
     data = {}
     data = getmarc(record, key, entity)
-    eprint(data)
+    eprint(data[0:2])
     return data
 
 
