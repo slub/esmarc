@@ -1574,6 +1574,9 @@ def gettitle(record, keys, entity):
                         title_obj["partStatement"] = []
                         for item in sset["p"]:
                             title_obj["partStatement"].append("")
+                    else:
+                        while len(title_obj["partStatement"]) < len(sset["p"]):
+                            title_obj["partStatement"].append("")
                     for n, item in enumerate(sset['p']):
                         title_obj["partStatement"][n] += item
                 if title_obj.get("partStatement"):
@@ -1773,6 +1776,16 @@ def gettitle(record, keys, entity):
 
     if title_obj:
         return title_obj
+
+def get_accessmode(record, key, entity):
+    """
+    get the accessMode (local, online) of the resource
+    """
+    data = {}
+    data = getmarc(record, key, entity)
+    eprint(data)
+    return data
+
 
 
 def traverse(dict_or_list, path):
@@ -1982,7 +1995,8 @@ entities = {
         "single:editionSequence": {geteditionSequence: "362"},
         "single:cartographicData": {get_cartData: "255"},
         "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]},
-        "multi:classifications": {get_class: ["050", "082", "084"]}
+        "multi:classifications": {get_class: ["050", "082", "084"]},
+        "single:accessMode": {get_accessmode: "007"}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
