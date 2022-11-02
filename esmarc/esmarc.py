@@ -1790,11 +1790,10 @@ def get_accessmode(record, key, entity):
     get the accessMode (local, online) of the resource
     """
     data = getmarc(record, key, entity)
-    if isinstance(data,str):
-        if data[0:2] == "tu" or data[0:2] == "vd":
-            return "local"
-        elif data[0:2] == "cr" or data[0:2] == "cz":
-            return "online"
+    if isinstance(data, str) and data[0:2] == "cr" or data[0:2] == "cz":
+        return "online"
+    else:
+        return "local"
 
 
 
