@@ -1366,13 +1366,21 @@ def get_footnotes(record, keys, entity):
                 concat_values = []
                 for concat_key in ['a','b','c','d','e','f']:
                     if concat_key in rawData:
-                        concat_values.append(rawData[concat_key])
+                        if isinstance(rawData[concat_key],list):
+                            for sub_item in rawData[concat_key]:
+                                concat_values.append(sub_item)
+                        else:
+                            concat_values.append(rawData[concat_key])
                 item["description"] = "; ".join(concat_values)
             if key == "502":
                 concat_values = []
                 for concat_key in ['a','b','c','d']:
                     if concat_key in rawData:
-                        concat_values.append(rawData[concat_key])
+                        if isinstance(rawData[concat_key],list):
+                            for sub_item in rawData[concat_key]:
+                                concat_values.append(sub_item)
+                        else:
+                            concat_values.append(rawData[concat_key])
                     item["description"] = ", ".join(concat_values)
             if len(item) > 1:
                 data.append(item)
@@ -1452,7 +1460,6 @@ def get_class(record, keys, entity):
                         for items in v:
                             for subf, val in items.items():
                                 ind_object[k][subf] = val
-                        data = merge_entry(data, entry)
                     if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "ssgn":
                         entry = {"@type": "CategoryCodeSet",
                                  "name": "Sondersammelgebiets-Nummer",
@@ -1573,6 +1580,9 @@ def gettitle(record, keys, entity):
                     if not title_obj.get("partStatement"):
                         title_obj["partStatement"] = []
                         for item in sset["p"]:
+                            title_obj["partStatement"].append("")
+                    else:
+                        while len(title_obj["partStatement"]) < len(sset["p"]):
                             title_obj["partStatement"].append("")
                     for n, item in enumerate(sset['p']):
                         title_obj["partStatement"][n] += item
@@ -1773,6 +1783,18 @@ def gettitle(record, keys, entity):
 
     if title_obj:
         return title_obj
+
+
+def get_accessmode(record, key, entity):
+    """
+    get the accessMode (local, online) of the resource
+    """
+    data = getmarc(record, key, entity)
+    if isinstance(data, str) and data[0:2] == "cr" or data[0:2] == "cz":
+        return "online"
+    else:
+        return "local"
+
 
 
 def traverse(dict_or_list, path):
@@ -1982,7 +2004,8 @@ entities = {
         "single:editionSequence": {geteditionSequence: "362"},
         "single:cartographicData": {get_cartData: "255"},
         "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]},
-        "multi:classifications": {get_class: ["050", "082", "084"]}
+        "multi:classifications": {get_class: ["050", "082", "084"]},
+        "single:accessMode": {get_accessmode: "007"}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
