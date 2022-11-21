@@ -1883,6 +1883,35 @@ def get_identifiedby(record, keys, entity):
                 issn[item] = list(set(issn.pop(item)))
     if issn.get("validValues") or issn.get("relatedValues") or issn.get("invalidValues"):
         data.append(issn)
+
+    # ISMN
+    
+    ismn = {"@type": "ISMN"}
+    marc_data = getmarc(record, "024", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == "2_":
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    if sset.get("a"):
+                        ismn["validValues"] = litter(ismn.get("validValues"), sset.get("a"))
+                    if sset.get("z"):
+                        ismn["invalidValues"] = litter(ismn.get("invalidValues"), sset.get("z"))
+    for item in ("validValues","invalidValues"):
+        if item in ismn:
+            if isinstance(ismn[item],str):
+                ismn[item] = [ismn.pop(item)]
+            elif isinstance(issn[item],list):
+                ismn[item] = list(set(ismn.pop(item)))
+    if ismn.get("validValues") or ismn.get("invalidValues"):
+        data.append(ismn)
+
+
     return data if data else None
 
 
@@ -2095,7 +2124,7 @@ entities = {
         "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]},
         "multi:classifications": {get_class: ["050", "082", "084"]},
         "single:accessMode": {get_accessmode: "007"},
-        "multi:identifiedBy": {get_identifiedby: ["020", "022", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]}
+        "multi:identifiedBy": {get_identifiedby: ["020", "022", "024", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
