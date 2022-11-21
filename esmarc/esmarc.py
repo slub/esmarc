@@ -1820,13 +1820,14 @@ def get_identifiedby(record, keys, entity):
                     isbn["invalidValues"] = litter(isbn.get("invalidValues"), sset.get("z"))
     #     for key in ["770", "772", "773", "775", "776","776.08.z; 776.1_.z; 780/785/787.00.z]:
     for key in ["770", "772", "773", "775", "776", "780", "785", "787"]:
-        marc_data = getmarc(record, "020", entity)
+        marc_data = getmarc(record, key, entity)
         if isinstance(marc_data, dict):
             marc_data = [marc_data]
         if marc_data:
             for indicator_level in marc_data:
                 for indicator, subfields in indicator_level.items():
                     if key == "776" and indicator not in ["08", "1_"]:
+                        eprint(key,indicator)
                         continue
                     if key == "787" and indicator != "00":
                         continue
@@ -1836,7 +1837,11 @@ def get_identifiedby(record, keys, entity):
                             sset[k] = litter(sset.get(k),v)
                     if "z" in sset:
                         isbn["relatedValues"] = litter(isbn.get("relatedValues"), sset.get("z"))
-    if isbn.get("validValues"):
+    for item in ("validValues","relatedValues","invalidValues"):
+        if item in isbn:
+            if isinstance(isbn[item],str):
+                isbn[item] = [isbn.pop(item)]
+    if isbn.get("validValues") or isbn.get("relatedValues") or isbn.get("invalidValues"):
         data.append(isbn)
 
     # ISNM
