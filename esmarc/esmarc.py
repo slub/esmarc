@@ -1885,7 +1885,6 @@ def get_identifiedby(record, keys, entity):
         data.append(issn)
 
     # ISMN
-    
     ismn = {"@type": "ISMN"}
     marc_data = getmarc(record, "024", entity)
     if isinstance(marc_data, dict):
@@ -1906,11 +1905,131 @@ def get_identifiedby(record, keys, entity):
         if item in ismn:
             if isinstance(ismn[item],str):
                 ismn[item] = [ismn.pop(item)]
-            elif isinstance(issn[item],list):
+            elif isinstance(ismn[item],list):
                 ismn[item] = list(set(ismn.pop(item)))
     if ismn.get("validValues") or ismn.get("invalidValues"):
         data.append(ismn)
 
+    # UPC
+    upc =  {"@type": "UPC"}
+    marc_data = getmarc(record, "024", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == "1_":
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    if sset.get("a"):
+                        upc["validValues"] = litter(upc.get("validValues"), sset.get("a"))
+    if "validValues" in upc:
+        if isinstance(upc["validValues"],str):
+            upc["validValues"] = [upc.pop("validValues")]
+        elif isinstance(upc["validValues"],list):
+            upc["validValues"] = list(set(upc.pop("validValues")))
+    if upc.get("validValues"):
+        data.append(upc)
+
+    # EAN
+    ean =  {"@type": "EAN"}
+    marc_data = getmarc(record, "024", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == "3_":
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    if sset.get("a"):
+                        ean["validValues"] = litter(ean.get("validValues"), sset.get("a"))
+    if "validValues" in ean:
+        if isinstance(ean["validValues"],str):
+            ean["validValues"] = [ean.pop("validValues")]
+        elif isinstance(ean["validValues"],list):
+            ean["validValues"] = list(set(ean.pop("validValues")))
+    if ean.get("validValues"):
+        data.append(ean)
+
+    # Unspecified
+    n_a =  {"@type": "Unspecified Number"}
+    marc_data = getmarc(record, "024", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == "8_":
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    if sset.get("q"):
+                        n_a["label"] = litter(n_a.get("label"), sset.get("q"))
+                    if sset.get("a"):
+                        n_a["validValues"] = litter(n_a.get("validValues"), sset.get("a"))
+    for item in ("validValues","label"):
+        if item in n_a:
+            if isinstance(n_a[item],str):
+                n_a[item] = [n_a.pop(item)]
+            elif isinstance(n_a[item],list):
+                n_a[item] = list(set(n_a.pop(item)))
+    if n_a.get("validValues"):
+        data.append(n_a)
+
+    # Order
+    order =  {"@type": "Order Number"}
+    marc_data = getmarc(record, "028", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("q"):
+                    order["label"] = litter(order.get("label"), sset.get("q"))
+                if sset.get("a"):
+                    order["validValues"] = litter(order.get("validValues"), sset.get("a"))
+                if sset.get("b"):
+                    order["publisher"] = litter(order.get("publisher"), sset.get("b"))
+    for item in ("validValues","label","publisher"):
+        if item in order:
+            if isinstance(order[item],str):
+                order[item] = [order.pop(item)]
+            elif isinstance(order[item],list):
+                order[item] = list(set(order.pop(item)))
+    if order.get("validValues"):
+        data.append(order)
+
+    # Report
+    rep =  {"@type": "Report Number"}
+    marc_data = getmarc(record, "088", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("a"):
+                    rep["validValues"] = litter(rep.get("validValues"), sset.get("a"))
+    if "validValues" in rep:
+        if isinstance(rep["validValues"],str):
+            rep["validValues"] = [rep.pop("validValues")]
+        elif isinstance(rep["validValues"],list):
+            rep["validValues"] = list(set(rep.pop("validValues")))
+    if rep.get("validValues"):
+        data.append(rep)
 
     return data if data else None
 
@@ -2124,7 +2243,7 @@ entities = {
         "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]},
         "multi:classifications": {get_class: ["050", "082", "084"]},
         "single:accessMode": {get_accessmode: "007"},
-        "multi:identifiedBy": {get_identifiedby: ["020", "022", "024", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]}
+        "multi:identifiedBy": {get_identifiedby: ["020", "022", "024", "028", "088", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
