@@ -1802,6 +1802,7 @@ def get_identifiedby(record, keys, entity):
     get various identifiers (ISBN,ISSN,ISMN,quotations,others) of the resource
     """
     data = []
+
     # ISBN
     isbn = {"@type": "ISBN"}
     marc_data = getmarc(record, "020", entity)
@@ -1818,7 +1819,6 @@ def get_identifiedby(record, keys, entity):
                     isbn["validValues"] = litter(isbn.get("validValues"), sset.get("a"))
                 if sset.get("z"):
                     isbn["invalidValues"] = litter(isbn.get("invalidValues"), sset.get("z"))
-    #     for key in ["770", "772", "773", "775", "776","776.08.z; 776.1_.z; 780/785/787.00.z]:
     for key in ["770", "772", "773", "775", "776", "780", "785", "787"]:
         marc_data = getmarc(record, key, entity)
         if isinstance(marc_data, dict):
@@ -1841,11 +1841,48 @@ def get_identifiedby(record, keys, entity):
         if item in isbn:
             if isinstance(isbn[item],str):
                 isbn[item] = [isbn.pop(item)]
+            elif isinstance(isbn[item],list):
+                isbn[item] = list(set(isbn.pop(item)))
     if isbn.get("validValues") or isbn.get("relatedValues") or isbn.get("invalidValues"):
         data.append(isbn)
 
-    # ISNM
-    
+    # ISSN
+    issn = {"@type": "ISSN"}
+    marc_data = getmarc(record, "022", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("a"):
+                    issn["validValues"] = litter(issn.get("validValues"), sset.get("a"))
+                if sset.get("y"):
+                    issn["invalidValues"] = litter(issn.get("invalidValues"), sset.get("y"))
+    for key in ["770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "830"]:
+        marc_data = getmarc(record, key, entity)
+        if isinstance(marc_data, dict):
+            marc_data = [marc_data]
+        if marc_data:
+            for indicator_level in marc_data:
+                for indicator, subfields in indicator_level.items():
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    if "x" in sset:
+                        issn["relatedValues"] = litter(issn.get("relatedValues"), sset.get("x"))
+    for item in ("validValues","relatedValues","invalidValues"):
+        if item in issn:
+            if isinstance(issn[item],str):
+                issn[item] = [issn.pop(item)]
+            elif isinstance(issn[item],list):
+                issn[item] = list(set(issn.pop(item)))
+    if issn.get("validValues") or issn.get("relatedValues") or issn.get("invalidValues"):
+        data.append(issn)
     return data if data else None
 
 
@@ -2058,7 +2095,7 @@ entities = {
         "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]},
         "multi:classifications": {get_class: ["050", "082", "084"]},
         "single:accessMode": {get_accessmode: "007"},
-        "multi:identifiedBy": {get_identifiedby: ["020", "770", "772", "773", "775", "776", "780", "785", "787"]}
+        "multi:identifiedBy": {get_identifiedby: ["020", "022", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
