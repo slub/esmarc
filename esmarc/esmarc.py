@@ -1348,17 +1348,18 @@ def get_footnotes(record, keys, entity):
     for key, rawDataArray in all_subfieldsets.items():
         for rawData in rawDataArray:
             item = {}
-            item["@type"] = footnotes_lookups[key]["@type"]
-            for k, v in rawData.items():
-                if footnotes_lookups[key].get(k):
-                    item[footnotes_lookups[key][k]] = v
-                if k == '0':
-                    if isinstance(v, str):
-                        v = [v]
-                    for _id in v:
-                        if _id.startswith("(DE-627"):
-                            item["@id"] = "https://data.slub-dresden.de/topics/{}".format(_id[8:])
-                    item["sameAs"] = gnd2uri(v)
+            if footnotes_lookups.get(key):
+                item["@type"] = footnotes_lookups[key]["@type"]
+                for k, v in rawData.items():
+                    if footnotes_lookups[key].get(k):
+                        item[footnotes_lookups[key][k]] = v
+                    if k == '0':
+                        if isinstance(v, str):
+                            v = [v]
+                        for _id in v:
+                            if _id.startswith("(DE-627"):
+                                item["@id"] = "https://data.slub-dresden.de/topics/{}".format(_id[8:])
+                        item["sameAs"] = gnd2uri(v)
             if key == "937":
                 if "d" in rawData or "e" in rawData or "f" in rawData:
                     item["@type"] = "instrumentationNote"
@@ -1796,6 +1797,52 @@ def get_accessmode(record, key, entity):
         return "local"
 
 
+def get_identifiedby(record, keys, entity):
+    """
+    get various identifiers (ISBN,ISSN,ISMN,quotations,others) of the resource
+    """
+    data = []
+    # ISBN
+    isbn = {"@type": "ISBN"}
+    marc_data = getmarc(record, "020", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("a"):
+                    isbn["validValues"] = litter(isbn.get("validValues"), sset.get("a"))
+                if sset.get("z"):
+                    isbn["invalidValues"] = litter(isbn.get("invalidValues"), sset.get("z"))
+    #     for key in ["770", "772", "773", "775", "776","776.08.z; 776.1_.z; 780/785/787.00.z]:
+    for key in ["770", "772", "773", "775", "776", "780", "785", "787"]:
+        marc_data = getmarc(record, "020", entity)
+        if isinstance(marc_data, dict):
+            marc_data = [marc_data]
+        if marc_data:
+            for indicator_level in marc_data:
+                for indicator, subfields in indicator_level.items():
+                    if key == "776" and indicator not in ["08", "1_"]:
+                        continue
+                    if key == "787" and indicator != "00":
+                        continue
+                    sset = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    if "z" in sset:
+                        isbn["relatedValues"] = litter(isbn.get("relatedValues"), sset.get("z"))
+    if isbn.get("validValues"):
+        data.append(isbn)
+
+    # ISNM
+    
+    return data if data else None
+
 
 def traverse(dict_or_list, path):
     """
@@ -2005,7 +2052,8 @@ entities = {
         "single:cartographicData": {get_cartData: "255"},
         "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]},
         "multi:classifications": {get_class: ["050", "082", "084"]},
-        "single:accessMode": {get_accessmode: "007"}
+        "single:accessMode": {get_accessmode: "007"},
+        "multi:identifiedBy": {get_identifiedby: ["020", "770", "772", "773", "775", "776", "780", "785", "787"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
