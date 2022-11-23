@@ -2028,8 +2028,135 @@ def get_identifiedby(record, keys, entity):
             rep["validValues"] = [rep.pop("validValues")]
         elif isinstance(rep["validValues"],list):
             rep["validValues"] = list(set(rep.pop("validValues")))
-    if rep.get("validValues"):
+    if rep.get("validValues") and rep not in data:
         data.append(rep)
+
+    # NBN
+    nbn = {"@type": "NBN",
+      "validValues": None}
+    marc_data = getmarc(record, "015", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("2") and sset["2"] == "dnb" and sset.get("a"):
+                    nbn["validValues"] = sset["a"]
+                    if isinstance(nbn["validValues"],str):
+                        nbn["validValues"] = [nbn.pop("validValues")]
+                    if nbn not in data:
+                        data.append(nbn)
+
+    # vd16/17/18
+    for item in ("16", "17", "18"):
+        vd = {"@type": "VD-{}".format(item),
+              "validValues": None}
+        marc_data = getmarc(record, "024", entity)
+        if isinstance(marc_data, dict):
+            marc_data = [marc_data]
+        if marc_data:
+            for indicator_level in marc_data:
+                for indicator, subfields in indicator_level.items():
+                    if indicator == "7_":
+                        sset = {}
+                        for subfield in subfields:
+                            for k,v in subfield.items():
+                                sset[k] = litter(sset.get(k),v)
+                        if item in ("17","18"):
+                            if sset.get("z") and sset.get("2") and sset["2"] == "vd{}".format(item):
+                                vd["invalidValues"] = sset["z"]
+                                if isinstance(vd["invalidValues"],str):
+                                    vd["invalidValues"] = [vd.pop("invalidValues")]
+                        if sset.get("2") and sset["2"] == "vd{}".format(item) and sset.get("a"):
+                            vd["validValues"] = sset["a"]
+                            if isinstance(vd["validValues"],str):
+                                vd["validValues"] = [vd.pop("validValues")]
+                            if vd not in data:
+                                data.append(vd)
+
+    # Fingerprint Hash
+    fp = {"@type": "Fingerprint Hash",
+          "validValues": None}
+    marc_data = getmarc(record, "026", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("e"):
+                    fp["validValues"] = sset["e"]
+                    if isinstance(fp["validValues"],str):
+                        fp["validValues"] = [fp.pop("validValues")]
+                    if fp not in data:
+                        data.append(fp)
+
+    # OCLC
+    oclc = {"@type": "OCLC",
+          "validValues": None}
+    marc_data = getmarc(record, "035", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("a") and sset["a"].startswith("(OCoLC)"):
+                    oclc["validValues"] = litter(oclc.get("validValues"),sset["a"].split(")")[1])
+    if isinstance(oclc["validValues"],str):
+        oclc["validValues"] = [oclc.pop("validValues")]
+    if oclc not in data:
+        data.append(oclc)
+
+    # Bibliographic References
+    bibref = {"@type": "Bibliografic References",
+              "validValues": None}
+    marc_data = getmarc(record, "510", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("a"):
+                    bibref["validValues"] = sset["a"]
+                    if isinstance(bibref["validValues"],str):
+                        bibref["validValues"] = [bibref.pop("validValues")]
+                    if bibref not in data:
+                        data.append(bibref)
+
+    # CODEN
+    coden = {"@type": "CODEN",
+              "validValues": None}
+    marc_data = getmarc(record, "030", entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("a"):
+                    coden["validValues"] = sset["a"]
+                    if isinstance(coden["validValues"],str):
+                        coden["validValues"] = [coden.pop("validValues")]
+                    if coden not in data:
+                        data.append(coden)
 
     return data if data else None
 
@@ -2243,7 +2370,7 @@ entities = {
         "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]},
         "multi:classifications": {get_class: ["050", "082", "084"]},
         "single:accessMode": {get_accessmode: "007"},
-        "multi:identifiedBy": {get_identifiedby: ["020", "022", "024", "028", "088", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]}
+        "multi:identifiedBy": {get_identifiedby: ["015", "020", "022", "024", "026", "028", "030", "035", "088", "510", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
