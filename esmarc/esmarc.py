@@ -1957,7 +1957,6 @@ def get_identifiedby(record, keys, entity):
         data.append(ean)
 
     # Unspecified
-    n_a =  {"@type": "Unspecified Number"}
     marc_data = getmarc(record, "024", entity)
     if isinstance(marc_data, dict):
         marc_data = [marc_data]
@@ -1969,21 +1968,21 @@ def get_identifiedby(record, keys, entity):
                     for subfield in subfields:
                         for k,v in subfield.items():
                             sset[k] = litter(sset.get(k),v)
+                    n_a =  {"@type": "Unspecified Number"}
                     if sset.get("q"):
                         n_a["label"] = litter(n_a.get("label"), sset.get("q"))
                     if sset.get("a"):
                         n_a["validValues"] = litter(n_a.get("validValues"), sset.get("a"))
-    for item in ("validValues","label"):
-        if item in n_a:
-            if isinstance(n_a[item],str):
-                n_a[item] = [n_a.pop(item)]
-            elif isinstance(n_a[item],list):
-                n_a[item] = list(set(n_a.pop(item)))
-    if n_a.get("validValues"):
-        data.append(n_a)
+                    for item in ("validValues","label"):
+                        if item in n_a:
+                            if isinstance(n_a[item],str):
+                                n_a[item] = [n_a.pop(item)]
+                            elif isinstance(n_a[item],list):
+                                n_a[item] = list(set(n_a.pop(item)))
+                    if n_a.get("validValues") and n_a not in data:
+                        data.append(n_a)
 
     # Order
-    order =  {"@type": "Order Number"}
     marc_data = getmarc(record, "028", entity)
     if isinstance(marc_data, dict):
         marc_data = [marc_data]
@@ -1994,23 +1993,23 @@ def get_identifiedby(record, keys, entity):
                 for subfield in subfields:
                     for k,v in subfield.items():
                         sset[k] = litter(sset.get(k),v)
+                order =  {"@type": "Order Number"}
                 if sset.get("q"):
                     order["label"] = litter(order.get("label"), sset.get("q"))
                 if sset.get("a"):
                     order["validValues"] = litter(order.get("validValues"), sset.get("a"))
                 if sset.get("b"):
                     order["publisher"] = litter(order.get("publisher"), sset.get("b"))
-    for item in ("validValues","label","publisher"):
-        if item in order:
-            if isinstance(order[item],str):
-                order[item] = [order.pop(item)]
-            elif isinstance(order[item],list):
-                order[item] = list(set(order.pop(item)))
-    if order.get("validValues"):
-        data.append(order)
+                for item in ("validValues","label","publisher"):
+                    if item in order:
+                        if isinstance(order[item],str):
+                            order[item] = [order.pop(item)]
+                        elif isinstance(order[item],list):
+                            order[item] = list(set(order.pop(item)))
+                if order.get("validValues") and order not in data:
+                    data.append(order)
 
     # Report
-    rep =  {"@type": "Report Number"}
     marc_data = getmarc(record, "088", entity)
     if isinstance(marc_data, dict):
         marc_data = [marc_data]
@@ -2021,15 +2020,16 @@ def get_identifiedby(record, keys, entity):
                 for subfield in subfields:
                     for k,v in subfield.items():
                         sset[k] = litter(sset.get(k),v)
+                rep =  {"@type": "Report Number"}
                 if sset.get("a"):
                     rep["validValues"] = litter(rep.get("validValues"), sset.get("a"))
-    if "validValues" in rep:
-        if isinstance(rep["validValues"],str):
-            rep["validValues"] = [rep.pop("validValues")]
-        elif isinstance(rep["validValues"],list):
-            rep["validValues"] = list(set(rep.pop("validValues")))
-    if rep.get("validValues") and rep not in data:
-        data.append(rep)
+                if "validValues" in rep:
+                    if isinstance(rep["validValues"],str):
+                        rep["validValues"] = [rep.pop("validValues")]
+                    elif isinstance(rep["validValues"],list):
+                        rep["validValues"] = list(set(rep.pop("validValues")))
+                if rep.get("validValues") and rep not in data:
+                    data.append(rep)
 
     # NBN
     nbn = {"@type": "NBN",
