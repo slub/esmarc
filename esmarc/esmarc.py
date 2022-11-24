@@ -1264,14 +1264,16 @@ def handle_contributor(record, keys, entity):
                         name = ""
                         for char in order:
                             if char in sset:
-                                name += sset[char] + ", "
+                                if isinstance(sset[char],str):
+                                    sset[char] = sset.pop(char)
+                                name += sset[char][0] + ", "
                         ret["name"] = name[:-2]
                     if sset.get("0"):
                         if isinstance(sset["0"],str):
                             sset["0"] = [sset["0"]]
                         if isinstance(sset["0"],list):
                             for item in sset["0"]:
-                                if item.startswith("(DE-627)"):
+                                if item.startswith("(DE-627)") and ret.get("@id"):
                                     ret["@id"] += item.split(")")[1]
                                 if item.startswith("(DE-588)"):
                                     ret["sameAs"] = "https://d-nb.info/gnd/" + item.split(")")[1]
@@ -1280,14 +1282,15 @@ def handle_contributor(record, keys, entity):
                             sset["4"] = [sset["4"]]
                         if isinstance(sset["4"],list):
                             for item in sset["4"]:
-                                role = {}
-                                role["@type"] = "Role"
-                                role["@id"] = "https://id.loc.gov/vocabulary/relators/{}".format(item)
-                                role["name"] = rolemapping_en[item]
-                                if role:
-                                    if not "roles" in ret:
-                                        ret["roles"] = []
-                                    ret["roles"].append(role)
+                                if item in rolemapping_en:
+                                    role = {}
+                                    role["@type"] = "Role"
+                                    role["@id"] = "https://id.loc.gov/vocabulary/relators/{}".format(item)
+                                    role["name"] = rolemapping_en[item]
+                                    if role:
+                                        if not "roles" in ret:
+                                            ret["roles"] = []
+                                        ret["roles"].append(role)
                     retObj.append(ret)
     return retObj if retObj else None
 
@@ -1363,7 +1366,6 @@ def get_footnotes(record, keys, entity):
             if key == "937":
                 if "d" in rawData or "e" in rawData or "f" in rawData:
                     item["@type"] = "instrumentationNote"
-                    item["instrumentation"] = item.pop("description")
                 concat_values = []
                 for concat_key in ['a','b','c','d','e','f']:
                     if concat_key in rawData:
@@ -2119,8 +2121,6 @@ def get_identifiedby(record, keys, entity):
         data.append(oclc)
 
     # Bibliographic References
-    bibref = {"@type": "Bibliografic References",
-              "validValues": None}
     marc_data = getmarc(record, "510", entity)
     if isinstance(marc_data, dict):
         marc_data = [marc_data]
@@ -2128,6 +2128,8 @@ def get_identifiedby(record, keys, entity):
         for indicator_level in marc_data:
             for indicator, subfields in indicator_level.items():
                 sset = {}
+                bibref = {"@type": "Bibliografic References",
+                          "validValues": None}
                 for subfield in subfields:
                     for k,v in subfield.items():
                         sset[k] = litter(sset.get(k),v)
