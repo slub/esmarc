@@ -2522,6 +2522,7 @@ entities = {
     },
 }
 
+
 def cli():
     """
     function for feeding the main-function with commandline-arguments when calling esmarc as standalone program from shell
