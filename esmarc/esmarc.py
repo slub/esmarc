@@ -2121,6 +2121,8 @@ def get_identifiedby(record, keys, entity):
         data.append(oclc)
 
     # Bibliographic References
+    bibref = {"@type": "Bibliografic References",
+                "validValues": None}
     marc_data = getmarc(record, "510", entity)
     if isinstance(marc_data, dict):
         marc_data = [marc_data]
@@ -2128,17 +2130,15 @@ def get_identifiedby(record, keys, entity):
         for indicator_level in marc_data:
             for indicator, subfields in indicator_level.items():
                 sset = {}
-                bibref = {"@type": "Bibliografic References",
-                          "validValues": None}
                 for subfield in subfields:
                     for k,v in subfield.items():
                         sset[k] = litter(sset.get(k),v)
                 if sset.get("a"):
-                    bibref["validValues"] = sset["a"]
-                    if isinstance(bibref["validValues"],str):
-                        bibref["validValues"] = [bibref.pop("validValues")]
-                    if bibref not in data:
-                        data.append(bibref)
+                    bibref["validValues"] = litter(bibref.get("validValues"),sset["a"])
+    if isinstance(bibref["validValues"],str):
+        bibref["validValues"] = [bibref.pop("validValues")]
+    if bibref.get("validValues") and bibref not in data:
+        data.append(bibref)
 
     # CODEN
     coden = {"@type": "CODEN",
