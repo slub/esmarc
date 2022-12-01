@@ -15,7 +15,7 @@ import datetime
 import dateparser
 import urllib
 from es2json import ESGenerator, IDFile, ArrayOrSingleValue, eprint, eprintjs, litter, isint
-from esmarc.swb_fix import marc2relation, rolemapping_en, rolemapping, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups, lookup_identifiers
+from esmarc.swb_fix import marc2relation, rolemapping_en, rolemapping, map_entities, map_types, lookup_coll, lookup_ssg_fid, lookup_sameAs, footnotes_lookups, lookup_identifiers, language_k10plus_to_iso_lookups, language_iso_label_lookups
 
 entities = None
 base_id = None
@@ -2163,6 +2163,42 @@ def get_identifiedby(record, keys, entity):
     return data if data else None
 
 
+def get_language(record, key, entity):
+    """
+    get the language of the bibliographic record and make an RDF Object out of it using lookups
+    """
+    marc_data = list(getmarcvalues(record, key, entity))
+    lang_data = []
+    for lang_code in marc_data:
+        if language_k10plus_to_iso_lookups.get(lang_code):
+            lcode = language_k10plus_to_iso_lookups[lang_code]
+        else:
+            lcode = lang_code
+        lang_object = {"@type": "CategoryCode",
+                       "@id": "http://id.loc.gov/vocabulary/iso639-2/{}".format(lcode),
+                       "codeValue": lcode,
+                       "name": {
+                           "en": language_iso_label_lookups[lcode]["en"],
+                           "de": language_iso_label_lookups[lcode]["de"]
+                           },
+                       "inCodeSet": "http://id.loc.gov/vocabulary/iso639-2"
+                       }
+        if lang_object not in lang_data:
+            lang_data.append(lang_object)
+    # Special case for 'language'
+    if key[-1] == 'a' and not lang_data:
+        return {
+            "@type": "CategoryCode",
+            "@id":"http://id.loc.gov/vocabulary/iso639-2/und",
+            "codeValue": "und",
+            "name": {
+                "en": "Undetermined",
+                "de": "Nicht zu entscheiden"         },
+            "inCodeSet": "http://id.loc.gov/vocabulary/iso639-2"
+            }
+    return lang_data
+
+
 def traverse(dict_or_list, path):
     """
     iterate through a python dict or list, yield all the keys/values
@@ -2370,7 +2406,9 @@ entities = {
         "multi:additionalInfo": {get_footnotes: ["242", "385", "500", "502", "508", "511", "515", "518", "521", "533", "535", "538", "546", "555", "561", "563", "937"]},
         "multi:classifications": {get_class: ["050", "082", "084"]},
         "single:accessMode": {get_accessmode: "007"},
-        "multi:identifiedBy": {get_identifiedby: ["015", "020", "022", "024", "026", "028", "030", "035", "088", "510", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]}
+        "multi:identifiedBy": {get_identifiedby: ["015", "020", "022", "024", "026", "028", "030", "035", "088", "510", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]},
+        "multi:language": {get_language: "041..a"},
+        "multi:originalLanguage": {get_language: "041..h"}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
