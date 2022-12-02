@@ -2386,7 +2386,6 @@ entities = {
         "multi:isPartOf": {getmarc: ["773..t", "773..s", "773..a"]},
         "multi:partOfSeries": {get_subfield: "830"},
         "single:license": {getmarc: "540..a"},
-        "multi:inLanguage": {getmarc: ["377..a", "041..a", "041..d", "130..l", "730..l"]},
         "single:numberOfPages": {getnumberofpages: ["300..a", "300..b", "300..c", "300..d", "300..e", "300..f", "300..g"]},
         "single:pageStart": {getmarc: "773..q"},
         "single:issueNumber": {getmarc: "773..l"},
