@@ -2196,7 +2196,166 @@ def get_language(record, key, entity):
                 "de": "Nicht zu entscheiden"         },
             "inCodeSet": "http://id.loc.gov/vocabulary/iso639-2"
             }
-    return lang_data
+    return lang_data if lang_data else None
+
+
+def get_seriesStatement(record, key, entity):
+    """
+    gets the information about series and hierachries, will only be filled if the resource isn't linked or isn't counted
+    """
+    marc_data = getmarc(record,key,entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    ret_data_array = []
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                if indicator == "0_":
+                    sset = {}
+                    ret_object = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    ret_object["name"] = sset.get('a')
+                    ret_object["position"] = sset.get('v')
+                    if ret_object:
+                        ret_data_array.append(ret_object)
+    return ret_data_array if ret_data_array else None
+
+
+def get_partseries(record, keys, entity):
+    """
+    gets the information if the resource is part of a series
+    """
+    ret_data_array = []
+    for key in keys:
+        marc_data = getmarc(record,key,entity)
+        if isinstance(marc_data, dict):
+            marc_data = [marc_data]
+        if marc_data:
+            for indicator_level in marc_data:
+                for indicator, subfields in indicator_level.items():
+                    if key == "776" and indicator != "1_":
+                        continue
+                    sset = {}
+                    ret_object = {}
+                    for subfield in subfields:
+                        for k,v in subfield.items():
+                            sset[k] = litter(sset.get(k),v)
+                    if sset.get('w'):
+                        if isinstance(sset['w'],str):
+                            sset['w'] = [sset.pop('w')]
+                        for item in sset['w']:
+                            if item.startswith("(DE-627"):
+                                ret_object["@id"] = "https://data.slub-dresden.de/resources/{}".format(item[8:])
+                    if sset.get('a') and not sset.get('t'):
+                        ret_object['name'] = sset['a']
+                    elif sset.get('a') and sset.get('t'):
+                        ret_object['name'] = "{} / {}".format(sset['t'],sset['a'])
+                    elif sset.get('t') and not sset.get('a'):
+                        ret_object['name'] = sset['t']
+                    if sset.get("v"):
+                        ret_object['position'] = sset['v']
+                    elif sset.get('9') and not sset.get('v'):
+                        ret_object['position'] = sset['9']
+                    if ret_object:
+                        ret_data_array.append(ret_object)
+    return ret_data_array if ret_data_array else None
+
+
+def get_ispartof(record, keys, entity):
+    """
+    gets the information if the resource is part of a another resource
+    """
+    ret_data_array = []
+    marc_data = getmarc(record,"773",entity)
+    if isinstance(marc_data, dict):
+        marc_data = [marc_data]
+    if marc_data:
+        for indicator_level in marc_data:
+            for indicator, subfields in indicator_level.items():
+                sset = {}
+                ret_object = {}
+                for subfield in subfields:
+                    for k,v in subfield.items():
+                        sset[k] = litter(sset.get(k),v)
+                if sset.get("w"):
+                    if isinstance(sset['w'],str):
+                        sset['w'] = [sset.pop('w')]
+                    for item in sset['w']:
+                        if item.startswith("(DE-627"):
+                            ret_object["@id"] = "https://data.slub-dresden.de/resources/{}".format(item[8:])
+                if indicator == "08":
+                    if sset.get('a') and not sset.get('t'):
+                        ret_object['name'] = sset['a']
+                    elif sset.get('a') and sset.get('t'):
+                        ret_object['name'] = "{} / {}".format(sset['t'],sset['a'])
+                    elif sset.get('t') and not sset.get('a'):
+                        ret_object['name'] = sset['t']
+                    if sset.get("g") and isinstance(sset.get("g"),str):
+                        sset['g'] = [sset.pop("g")]
+                    ret_object['position'] = ", ".join(sset.get('g'))
+                    if sset.get("d") and isinstance(sset.get("d"),str):
+                        sset['d'] = [sset.pop("d")]
+                    ret_object['publisherNote'] = ", ".join(sset.get('d'))
+                    ret_object['displayLabel'] = sset.get('i')
+                elif indicator == "18":
+                    if sset.get("g") and isinstance(sset.get("g"),str):
+                        sset['g'] = [sset.pop("g")]
+                    ret_object['position'] = ", ".join(sset.get('g'))
+                    title_obj = gettitle(record, ["130", "210", "240", "245", "246", "247", "249", "501", "505", "700", "710", "711", "730"], entity)
+                    ret_object["mainTitle"] = title_obj.get("mainTitle")
+                    if title_obj.get("partStatement") and isinstance(title_obj.get("partStatement"),list):
+                        ret_object["partStatement"] = title_obj.get("partStatement")[0]
+                    ret_object["name"] = "{}. {}".format(title_obj.get("mainTitle"),ret_object.get("partStatement"))
+                if ret_object.get("@id") and indicator in ("08","18"):
+                    ret_data_array.append(ret_object)
+    return ret_data_array if ret_data_array else None
+
+
+def get_relations(record, keys, entity):
+    """
+    get the relations between one resource to another
+    """
+    ret_data_array = []
+    for key in keys:
+        marc_data = getmarc(record, key, entity)
+        if isinstance(marc_data, dict):
+           marc_data = [marc_data]
+        if marc_data:
+            for indicator_level in marc_data:
+                for indicator, subfields in indicator_level.items():
+                    if indicator[0] == '0':
+                        sset = {}
+                        ret_object = {}
+                        for subfield in subfields:
+                            for k,v in subfield.items():
+                                sset[k] = litter(sset.get(k),v)
+                        if sset.get("w"):
+                            if isinstance(sset['w'],str):
+                                sset['w'] = [sset.pop('w')]
+                            for item in sset['w']:
+                                if item.startswith("(DE-627"):
+                                    ret_object["@id"] = "https://data.slub-dresden.de/resources/{}".format(item[8:])
+                        if sset.get('a') and not sset.get('t'):
+                            ret_object['name'] = sset['a']
+                        elif sset.get('a') and sset.get('t'):
+                            ret_object['name'] = "{} / {}".format(sset['t'],sset['a'])
+                        elif sset.get('t') and not sset.get('a'):
+                            ret_object['name'] = sset['t']
+                        if sset.get('i'):
+                            ret_object['relationType'] = sset['i']
+                        if ret_object:
+                            ret_data_array.append(ret_object)
+    return ret_data_array if ret_data_array else None
+
+
+def get_reproductionSeriesStatement(record, key, entity):
+    """
+    get the reproductionSeriesStatement
+    """
+    data = getmarc(record, key, entity)
+    return {"name": data} if data else None
 
 
 def traverse(dict_or_list, path):
@@ -2382,9 +2541,6 @@ entities = {
         "single:dateOriginalPublished": {dateOriginalPublished: ["008", "533", "534", "264"]},
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:genre": {getgenre: "655..a"},
-        "multi:hasPart": {handleHasPart: ["700"]},
-        "multi:isPartOf": {getmarc: ["773..t", "773..s", "773..a"]},
-        "multi:partOfSeries": {get_subfield: "830"},
         "single:license": {getmarc: "540..a"},
         "single:numberOfPages": {getnumberofpages: ["300..a", "300..b", "300..c", "300..d", "300..e", "300..f", "300..g"]},
         "single:pageStart": {getmarc: "773..q"},
@@ -2407,7 +2563,12 @@ entities = {
         "single:accessMode": {get_accessmode: "007"},
         "multi:identifiedBy": {get_identifiedby: ["015", "020", "022", "024", "026", "028", "030", "035", "088", "510", "770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "811", "830"]},
         "multi:language": {get_language: "041..a"},
-        "multi:originalLanguage": {get_language: "041..h"}
+        "multi:originalLanguage": {get_language: "041..h"},
+        "multi:seriesStatement": {get_seriesStatement: "490"},
+        "multi:partOfSeries": {get_partseries: ["776", "800", "810", "811", "830"]},
+        "multi:isPartOf": {get_ispartof: ["245", "773"]},
+        "multi:reproductionSeriesStatement": {get_reproductionSeriesStatement: "533..f"},
+        "multi:relations":  {get_relations: ["770", "772", "775", "776", "780", "785", "787"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
