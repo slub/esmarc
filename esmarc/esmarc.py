@@ -2,7 +2,6 @@ from rdflib import URIRef
 import traceback
 from multiprocessing import Pool, current_process
 import json
-import argparse
 import gzip
 from es2json import ESGenerator, IDFile, eprint
 
