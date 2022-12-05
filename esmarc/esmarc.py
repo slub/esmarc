@@ -2285,6 +2285,10 @@ def get_ispartof(record, keys, entity):
                     for item in sset['w']:
                         if item.startswith("(DE-627"):
                             ret_object["@id"] = "https://data.slub-dresden.de/resources/{}".format(item[8:])
+                if sset.get('g') and isinstance(sset.get('g'), str):
+                    sset['g'] = [sset.pop("g")]
+                if sset.get('g'):
+                    ret_object['position'] = ", ".join(sset.get('g'))
                 if indicator == "08":
                     if sset.get('a') and not sset.get('t'):
                         ret_object['name'] = sset['a']
@@ -2292,17 +2296,12 @@ def get_ispartof(record, keys, entity):
                         ret_object['name'] = "{} / {}".format(sset['t'],sset['a'])
                     elif sset.get('t') and not sset.get('a'):
                         ret_object['name'] = sset['t']
-                    if sset.get("g") and isinstance(sset.get("g"),str):
-                        sset['g'] = [sset.pop("g")]
-                    ret_object['position'] = ", ".join(sset.get('g'))
-                    if sset.get("d") and isinstance(sset.get("d"),str):
+                    if sset.get('d') and isinstance(sset.get('d'),str):
                         sset['d'] = [sset.pop("d")]
-                    ret_object['publisherNote'] = ", ".join(sset.get('d'))
+                    if sset.get('d'):
+                        ret_object['publisherNote'] = ", ".join(sset.get('d'))
                     ret_object['displayLabel'] = sset.get('i')
                 elif indicator == "18":
-                    if sset.get("g") and isinstance(sset.get("g"),str):
-                        sset['g'] = [sset.pop("g")]
-                    ret_object['position'] = ", ".join(sset.get('g'))
                     title_obj = gettitle(record, ["130", "210", "240", "245", "246", "247", "249", "501", "505", "700", "710", "711", "730"], entity)
                     ret_object["mainTitle"] = title_obj.get("mainTitle")
                     if title_obj.get("partStatement") and isinstance(title_obj.get("partStatement"),list):
