@@ -2174,17 +2174,18 @@ def get_language(record, key, entity):
             lcode = language_k10plus_to_iso_lookups[lang_code]
         else:
             lcode = lang_code
-        lang_object = {"@type": "CategoryCode",
-                       "@id": "http://id.loc.gov/vocabulary/iso639-2/{}".format(lcode),
-                       "codeValue": lcode,
-                       "name": {
-                           "en": language_iso_label_lookups[lcode]["en"],
-                           "de": language_iso_label_lookups[lcode]["de"]
-                           },
-                       "inCodeSet": "http://id.loc.gov/vocabulary/iso639-2"
-                       }
-        if lang_object not in lang_data:
-            lang_data.append(lang_object)
+        if lcode in language_iso_label_lookups:
+            lang_object = {"@type": "CategoryCode",
+                           "@id": "http://id.loc.gov/vocabulary/iso639-2/{}".format(lcode),
+                           "codeValue": lcode,
+                           "name": {
+                            "en": language_iso_label_lookups[lcode]["en"],
+                            "de": language_iso_label_lookups[lcode]["de"]
+                            },
+                           "inCodeSet": "http://id.loc.gov/vocabulary/iso639-2"
+                           }
+            if lang_object not in lang_data:
+                lang_data.append(lang_object)
     # Special case for 'language'
     if key[-1] == 'a' and not lang_data:
         return {
