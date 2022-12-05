@@ -1254,12 +1254,16 @@ def handle_contributor(record, keys, entity):
                         if sset.get("0"):
                             ret["@id"] = "https://data.slub-dresden.de/persons/"
                         ret["name"] = ""
-                        if sset.get("a"):
-                            ret["name"] += sset["a"]
-                        if sset.get("b"):
-                            ret["name"] += " " +sset["b"]
-                        if sset.get("c"):
+                        if sset.get('a') and isinstance(sset['a'],str):
+                            ret["name"] += sset['a']
+                        elif sset.get('a') and isinstance(sset['a'],list):
+                            ret["name"] += sset['a'][0]
+                        if sset.get('b') and isinstance(sset['b'],str):
+                            ret["name"] += " " +sset['b']
+                        if sset.get('c') and isinstance(sset['c'],str):
                             ret["name"] += ", " +sset["c"]
+                        elif sset.get('c') and isinstance(sset['c'],list):
+                            ret["name"] += ", " + ", ".join(sset['c'])
                     if order:
                         name = ""
                         for char in order:
