@@ -3,7 +3,7 @@ import copy
 from esmarc import globals
 from esmarc.marc import getmarc
 from esmarc.id import id2uri, gnd2uri
-from esmarc.swb_fix import map_entities, map_types
+from esmarc.lookup_tables.entities import map_entities, map_types
 
 
 def get_subfield_if_4(jline, key, entity):

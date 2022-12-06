@@ -192,7 +192,7 @@ def gettitle(record, keys, entity):
                         while len(title_obj["partStatement"]) < len(sset["p"]):
                             title_obj["partStatement"].append("")
                     for n, item in enumerate(sset['p']):
-                        title_obj["partStatement"][n] += item
+                        title_obj["partStatement"][n] += " {}".format(item)
                 if title_obj.get("partStatement"):
                     for item in title_obj["partStatement"]:
                         title_obj["preferredName"] += ". "

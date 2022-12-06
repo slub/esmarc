@@ -29,7 +29,7 @@ def uri2url(isil, num):
     """
     Transforms e.g. .../1231111151 to https://d-nb.info/gnd/1231111151,
     not only GNDs, also SWB, GBV, configureable over lookup_sameAs lookup table
-    in swb_fix.py
+    in lookup_tables/identifiers.py
     """
     if isil == "(DE-576)":
         return None
