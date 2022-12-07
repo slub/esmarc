@@ -1,6 +1,6 @@
 from es2json import litter
 from esmarc.id import gnd2uri
-from esmarc.marc import getmarc
+from esmarc.marc import get_subsets
 from esmarc.helperfunc import removeEmpty
 from esmarc.lookup_tables.footnotes import footnotes_lookups
 
@@ -12,19 +12,9 @@ def get_footnotes(record, keys, entity):
     data = []
     all_subfieldsets = {}
     for key in keys:
-        marc_data = getmarc(record, key, entity)
-        if marc_data:
-            all_subfieldsets[key] = []
-        if isinstance(marc_data, dict):
-            marc_data = [marc_data]
-        if isinstance(marc_data, list):
-            for indicator_level in marc_data:
-                for _ind in indicator_level:
-                    sset = {}
-                    for subfield_dict in indicator_level[_ind]:
-                        for k,v in subfield_dict.items():
-                            sset[k] = litter(sset.get(k),v)
-                    all_subfieldsets[key].append(sset)
+        all_subfieldsets[key] = []
+        for sset in get_subsets(record, key, '*'):
+            all_subfieldsets[key].append(sset)
     all_subfieldsets = removeEmpty(all_subfieldsets)
     for key, rawDataArray in all_subfieldsets.items():
         for rawData in rawDataArray:

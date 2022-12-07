@@ -1,6 +1,6 @@
 from es2json import litter
 from esmarc import globals
-from esmarc.marc import getmarc
+from esmarc.marc import getmarc, get_subsets
 from esmarc.lookup_tables.sameAs import lookup_sameAs
 from esmarc.lookup_tables.identifiers import lookup_identifiers
 
@@ -73,25 +73,19 @@ def getisil(record, regex, entity):
 
 
 def handle_identifier(record, key, entity):
+    """
+    gets various identifiers from field 024 of the resource
+    """
     ids = []
-    marc_data = getmarc(record, key, entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                if "2" in sset and "a" in sset:
-                    if sset["2"] in lookup_identifiers:
-                        id_obj = {}
-                        id_obj["@id"] = "{}{}".format(lookup_identifiers[sset["2"]], sset["a"])
-                        id_obj["@type"] = "PropertyValue"
-                        id_obj["propertyID"] = sset["2"]
-                        id_obj["value"] = sset["a"]
-                        ids.append(id_obj)
+    for sset in get_subsets(record, key, '*'):
+        if sset.get('2') and sset.get('a'):
+            if sset['2'] in lookup_identifiers:
+                id_obj = {}
+                id_obj["@id"] = "{}{}".format(lookup_identifiers[sset['2']], sset['a'])
+                id_obj["@type"] = "PropertyValue"
+                id_obj["propertyID"] = sset['2']
+                id_obj["value"] = sset['a']
+                ids.append(id_obj)
     if ids:
         return ids
 
@@ -104,38 +98,15 @@ def get_identifiedby(record, keys, entity):
 
     # ISBN
     isbn = {"@type": "ISBN"}
-    marc_data = getmarc(record, "020", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                if sset.get("a"):
-                    isbn["validValues"] = litter(isbn.get("validValues"), sset.get("a"))
-                if sset.get("z"):
-                    isbn["invalidValues"] = litter(isbn.get("invalidValues"), sset.get("z"))
-    for key in ["770", "772", "773", "775", "776", "780", "785", "787"]:
-        marc_data = getmarc(record, key, entity)
-        if isinstance(marc_data, dict):
-            marc_data = [marc_data]
-        if marc_data:
-            for indicator_level in marc_data:
-                for indicator, subfields in indicator_level.items():
-                    if key == "776" and indicator not in ["08", "1_"]:
-                        eprint(key,indicator)
-                        continue
-                    if key == "787" and indicator != "00":
-                        continue
-                    sset = {}
-                    for subfield in subfields:
-                        for k,v in subfield.items():
-                            sset[k] = litter(sset.get(k),v)
-                    if "z" in sset:
-                        isbn["relatedValues"] = litter(isbn.get("relatedValues"), sset.get("z"))
+    for sset in get_subsets(record, "020", '*'):
+        if sset.get("a"):
+            isbn["validValues"] = litter(isbn.get("validValues"), sset.get("a"))
+        if sset.get("z"):
+            isbn["invalidValues"] = litter(isbn.get("invalidValues"), sset.get("z"))
+    for key, indicator in {"770": '*', "772": '*', "773": '*', "775": '*', "776": ["08", "1_"], "780": '*', "785": '*', "787": "00"}.items():
+        for sset in get_subsets(record, key, indicator):
+            if sset.get("z"):
+                isbn["relatedValues"] = litter(isbn.get("relatedValues"), sset.get("z"))
     for item in ("validValues","relatedValues","invalidValues"):
         if item in isbn:
             if isinstance(isbn[item],str):
@@ -147,33 +118,14 @@ def get_identifiedby(record, keys, entity):
 
     # ISSN
     issn = {"@type": "ISSN"}
-    marc_data = getmarc(record, "022", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                if sset.get("a"):
-                    issn["validValues"] = litter(issn.get("validValues"), sset.get("a"))
-                if sset.get("y"):
-                    issn["invalidValues"] = litter(issn.get("invalidValues"), sset.get("y"))
-    for key in ["770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "830"]:
-        marc_data = getmarc(record, key, entity)
-        if isinstance(marc_data, dict):
-            marc_data = [marc_data]
-        if marc_data:
-            for indicator_level in marc_data:
-                for indicator, subfields in indicator_level.items():
-                    sset = {}
-                    for subfield in subfields:
-                        for k,v in subfield.items():
-                            sset[k] = litter(sset.get(k),v)
-                    if "x" in sset:
-                        issn["relatedValues"] = litter(issn.get("relatedValues"), sset.get("x"))
+    for sset in get_subsets(record, "022", '*'):
+        if sset.get("a"):
+            issn["validValues"] = litter(issn.get("validValues"), sset.get("a"))
+        if sset.get("y"):
+            issn["invalidValues"] = litter(issn.get("invalidValues"), sset.get("y"))
+    for sset in get_subsets(record,["770", "772", "773", "775", "776", "780", "785", "787", "800", "810", "811", "830"],'*'):
+        if "x" in sset:
+            issn["relatedValues"] = litter(issn.get("relatedValues"), sset.get("x"))
     for item in ("validValues","relatedValues","invalidValues"):
         if item in issn:
             if isinstance(issn[item],str):
@@ -185,21 +137,11 @@ def get_identifiedby(record, keys, entity):
 
     # ISMN
     ismn = {"@type": "ISMN"}
-    marc_data = getmarc(record, "024", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                if indicator == "2_":
-                    sset = {}
-                    for subfield in subfields:
-                        for k,v in subfield.items():
-                            sset[k] = litter(sset.get(k),v)
-                    if sset.get("a"):
-                        ismn["validValues"] = litter(ismn.get("validValues"), sset.get("a"))
-                    if sset.get("z"):
-                        ismn["invalidValues"] = litter(ismn.get("invalidValues"), sset.get("z"))
+    for sset in get_subsets(record, "022", "2_"):
+        if sset.get("a"):
+            ismn["validValues"] = litter(ismn.get("validValues"), sset.get("a"))
+        if sset.get("z"):
+            ismn["invalidValues"] = litter(ismn.get("invalidValues"), sset.get("z"))
     for item in ("validValues","invalidValues"):
         if item in ismn:
             if isinstance(ismn[item],str):
@@ -211,19 +153,9 @@ def get_identifiedby(record, keys, entity):
 
     # UPC
     upc =  {"@type": "UPC"}
-    marc_data = getmarc(record, "024", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                if indicator == "1_":
-                    sset = {}
-                    for subfield in subfields:
-                        for k,v in subfield.items():
-                            sset[k] = litter(sset.get(k),v)
-                    if sset.get("a"):
-                        upc["validValues"] = litter(upc.get("validValues"), sset.get("a"))
+    for sset in get_subsets(record, "022", "1_"):
+        if sset.get("a"):
+            upc["validValues"] = litter(upc.get("validValues"), sset.get("a"))
     if "validValues" in upc:
         if isinstance(upc["validValues"],str):
             upc["validValues"] = [upc.pop("validValues")]
@@ -234,19 +166,9 @@ def get_identifiedby(record, keys, entity):
 
     # EAN
     ean =  {"@type": "EAN"}
-    marc_data = getmarc(record, "024", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                if indicator == "3_":
-                    sset = {}
-                    for subfield in subfields:
-                        for k,v in subfield.items():
-                            sset[k] = litter(sset.get(k),v)
-                    if sset.get("a"):
-                        ean["validValues"] = litter(ean.get("validValues"), sset.get("a"))
+    for sset in get_subsets(record, "024", "3_"):
+        if sset.get("a"):
+            ean["validValues"] = litter(ean.get("validValues"), sset.get("a"))
     if "validValues" in ean:
         if isinstance(ean["validValues"],str):
             ean["validValues"] = [ean.pop("validValues")]
@@ -256,162 +178,97 @@ def get_identifiedby(record, keys, entity):
         data.append(ean)
 
     # Unspecified
-    marc_data = getmarc(record, "024", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                if indicator == "8_":
-                    sset = {}
-                    for subfield in subfields:
-                        for k,v in subfield.items():
-                            sset[k] = litter(sset.get(k),v)
-                    n_a =  {"@type": "Unspecified Number"}
-                    if sset.get("q"):
-                        n_a["label"] = litter(n_a.get("label"), sset.get("q"))
-                    if sset.get("a"):
-                        n_a["validValues"] = litter(n_a.get("validValues"), sset.get("a"))
-                    for item in ("validValues","label"):
-                        if item in n_a:
-                            if isinstance(n_a[item],str):
-                                n_a[item] = [n_a.pop(item)]
-                            elif isinstance(n_a[item],list):
-                                n_a[item] = list(set(n_a.pop(item)))
-                    if n_a.get("validValues") and n_a not in data:
-                        data.append(n_a)
+    for sset in get_subsets(record, "024", "8_"):
+        n_a =  {"@type": "Unspecified Number"}
+        if sset.get("q"):
+            n_a["label"] = litter(n_a.get("label"), sset.get("q"))
+        if sset.get("a"):
+            n_a["validValues"] = litter(n_a.get("validValues"), sset.get("a"))
+        for item in ("validValues","label"):
+            if item in n_a:
+                if isinstance(n_a[item],str):
+                    n_a[item] = [n_a.pop(item)]
+                elif isinstance(n_a[item],list):
+                    n_a[item] = list(set(n_a.pop(item)))
+        if n_a.get("validValues") and n_a not in data:
+            data.append(n_a)
 
     # Order
-    marc_data = getmarc(record, "028", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                order =  {"@type": "Order Number"}
-                if sset.get("q"):
-                    order["label"] = litter(order.get("label"), sset.get("q"))
-                if sset.get("a"):
-                    order["validValues"] = litter(order.get("validValues"), sset.get("a"))
-                if sset.get("b"):
-                    order["publisher"] = litter(order.get("publisher"), sset.get("b"))
-                for item in ("validValues","label","publisher"):
-                    if item in order:
-                        if isinstance(order[item],str):
-                            order[item] = [order.pop(item)]
-                        elif isinstance(order[item],list):
-                            order[item] = list(set(order.pop(item)))
-                if order.get("validValues") and order not in data:
-                    data.append(order)
+    for sset in get_subsets(record, "028", '*'):
+        order =  {"@type": "Order Number"}
+        if sset.get("q"):
+            order["label"] = litter(order.get("label"), sset.get("q"))
+        if sset.get("a"):
+            order["validValues"] = litter(order.get("validValues"), sset.get("a"))
+        if sset.get("b"):
+            order["publisher"] = litter(order.get("publisher"), sset.get("b"))
+        for item in ("validValues","label","publisher"):
+            if item in order:
+                if isinstance(order[item],str):
+                    order[item] = [order.pop(item)]
+                elif isinstance(order[item],list):
+                    order[item] = list(set(order.pop(item)))
+        if order.get("validValues") and order not in data:
+            data.append(order)
 
     # Report
-    marc_data = getmarc(record, "088", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                rep =  {"@type": "Report Number"}
-                if sset.get("a"):
-                    rep["validValues"] = litter(rep.get("validValues"), sset.get("a"))
-                if "validValues" in rep:
-                    if isinstance(rep["validValues"],str):
-                        rep["validValues"] = [rep.pop("validValues")]
-                    elif isinstance(rep["validValues"],list):
-                        rep["validValues"] = list(set(rep.pop("validValues")))
-                if rep.get("validValues") and rep not in data:
-                    data.append(rep)
+    for sset in get_subsets(record, "088", '*'):
+        rep =  {"@type": "Report Number"}
+        if sset.get("a"):
+            rep["validValues"] = litter(rep.get("validValues"), sset.get("a"))
+        if "validValues" in rep:
+            if isinstance(rep["validValues"],str):
+                rep["validValues"] = [rep.pop("validValues")]
+            elif isinstance(rep["validValues"],list):
+                rep["validValues"] = list(set(rep.pop("validValues")))
+        if rep.get("validValues") and rep not in data:
+            data.append(rep)
 
     # NBN
     nbn = {"@type": "NBN",
       "validValues": None}
-    marc_data = getmarc(record, "015", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                if sset.get("2") and sset["2"] == "dnb" and sset.get("a"):
-                    nbn["validValues"] = sset["a"]
-                    if isinstance(nbn["validValues"],str):
-                        nbn["validValues"] = [nbn.pop("validValues")]
-                    if nbn not in data:
-                        data.append(nbn)
+    for sset in get_subsets(record, "015", '*'):
+        if sset.get("2") and sset["2"] == "dnb" and sset.get("a"):
+            nbn["validValues"] = sset["a"]
+            if isinstance(nbn["validValues"],str):
+                nbn["validValues"] = [nbn.pop("validValues")]
+            if nbn not in data:
+                data.append(nbn)
 
     # vd16/17/18
     for item in ("16", "17", "18"):
         vd = {"@type": "VD-{}".format(item),
               "validValues": None}
-        marc_data = getmarc(record, "024", entity)
-        if isinstance(marc_data, dict):
-            marc_data = [marc_data]
-        if marc_data:
-            for indicator_level in marc_data:
-                for indicator, subfields in indicator_level.items():
-                    if indicator == "7_":
-                        sset = {}
-                        for subfield in subfields:
-                            for k,v in subfield.items():
-                                sset[k] = litter(sset.get(k),v)
-                        if item in ("17","18"):
-                            if sset.get("z") and sset.get("2") and sset["2"] == "vd{}".format(item):
-                                vd["invalidValues"] = sset["z"]
-                                if isinstance(vd["invalidValues"],str):
-                                    vd["invalidValues"] = [vd.pop("invalidValues")]
-                        if sset.get("2") and sset["2"] == "vd{}".format(item) and sset.get("a"):
-                            vd["validValues"] = sset["a"]
-                            if isinstance(vd["validValues"],str):
-                                vd["validValues"] = [vd.pop("validValues")]
-                            if vd not in data:
-                                data.append(vd)
+        for sset in get_subsets(record, "024", "7_"):
+            if item in ("17","18"):
+                if sset.get("z") and sset.get("2") and sset["2"] == "vd{}".format(item):
+                    vd["invalidValues"] = sset["z"]
+                    if isinstance(vd["invalidValues"],str):
+                        vd["invalidValues"] = [vd.pop("invalidValues")]
+            if sset.get("2") and sset["2"] == "vd{}".format(item) and sset.get("a"):
+                vd["validValues"] = sset["a"]
+                if isinstance(vd["validValues"],str):
+                    vd["validValues"] = [vd.pop("validValues")]
+                if vd not in data:
+                    data.append(vd)
 
     # Fingerprint Hash
     fp = {"@type": "Fingerprint Hash",
           "validValues": None}
-    marc_data = getmarc(record, "026", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                if sset.get("e"):
-                    fp["validValues"] = sset["e"]
-                    if isinstance(fp["validValues"],str):
-                        fp["validValues"] = [fp.pop("validValues")]
-                    if fp not in data:
-                        data.append(fp)
+    for sset in get_subsets(record, "026", '*'):
+        if sset.get("e"):
+            fp["validValues"] = sset["e"]
+            if isinstance(fp["validValues"],str):
+                fp["validValues"] = [fp.pop("validValues")]
+            if fp not in data:
+                data.append(fp)
 
     # OCLC
     oclc = {"@type": "OCLC",
           "validValues": None}
-    marc_data = getmarc(record, "035", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                if sset.get("a") and sset["a"].startswith("(OCoLC)"):
-                    oclc["validValues"] = litter(oclc.get("validValues"),sset["a"].split(")")[1])
+    for sset in get_subsets(record, "035", '*'):
+        if sset.get("a") and sset["a"].startswith("(OCoLC)"):
+            oclc["validValues"] = litter(oclc.get("validValues"),sset["a"].split(")")[1])
     if isinstance(oclc["validValues"],str):
         oclc["validValues"] = [oclc.pop("validValues")]
     if oclc not in data:
@@ -420,18 +277,9 @@ def get_identifiedby(record, keys, entity):
     # Bibliographic References
     bibref = {"@type": "Bibliografic References",
                 "validValues": None}
-    marc_data = getmarc(record, "510", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                if sset.get("a"):
-                    bibref["validValues"] = litter(bibref.get("validValues"),sset["a"])
+    for sset in get_subsets(record, "510", '*'):
+        if sset.get("a"):
+            bibref["validValues"] = litter(bibref.get("validValues"),sset["a"])
     if isinstance(bibref["validValues"],str):
         bibref["validValues"] = [bibref.pop("validValues")]
     if bibref.get("validValues") and bibref not in data:
@@ -440,21 +288,12 @@ def get_identifiedby(record, keys, entity):
     # CODEN
     coden = {"@type": "CODEN",
               "validValues": None}
-    marc_data = getmarc(record, "030", entity)
-    if isinstance(marc_data, dict):
-        marc_data = [marc_data]
-    if marc_data:
-        for indicator_level in marc_data:
-            for indicator, subfields in indicator_level.items():
-                sset = {}
-                for subfield in subfields:
-                    for k,v in subfield.items():
-                        sset[k] = litter(sset.get(k),v)
-                if sset.get("a"):
-                    coden["validValues"] = sset["a"]
-                    if isinstance(coden["validValues"],str):
-                        coden["validValues"] = [coden.pop("validValues")]
-                    if coden not in data:
-                        data.append(coden)
+    for sset in get_subsets(record, "030", '*'):
+        if sset.get("a"):
+            coden["validValues"] = litter(coden.get("validValues"), sset["a"])
+    if isinstance(coden["validValues"],str):
+        coden["validValues"] = [coden.pop("validValues")]
+    if coden.get("validValues") and coden not in data:
+        data.append(coden)
 
     return data if data else None

@@ -1,4 +1,4 @@
-from esmarc.marc import getmarc
+from esmarc.marc import getmarc, get_subsets
 from es2json import litter
 from esmarc.id import gnd2uri
 from esmarc.lookup_tables.sameAs import lookup_sameAs
@@ -14,16 +14,9 @@ def getsameAs(jline, keys, entity):
     data = []
     for key in keys:
         if key == "016":  # 016 has ISIL in 016$2 and ID in 016$a.
-            marc_data = getmarc(jline, key, entity)
-            if isinstance(marc_data,list):
-                for indicator_level in marc_data:
-                    for _ind in indicator_level:
-                        sset = {}
-                        for subfield_dict in indicator_level[_ind]:
-                            for k,v in subfield_dict.items():
-                                sset[k] = v
-                    if sset.get("a") and sset.get("2"):
-                        data = litter(data, "({}){}".format(sset["2"], sset["a"]))
+            for sset in get_subsets(jline, key, '*'):
+                if sset.get("a") and sset.get("2"):
+                    data = litter(data, "({}){}".format(sset["2"], sset["a"]))
         elif key == "035..a":  # 035$a has already both in $a, so we're fine
             data = litter(data, getmarc(jline, key, entity))
     if isinstance(data, str):

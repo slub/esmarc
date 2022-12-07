@@ -80,6 +80,40 @@ def getmarc(record, regex, entity):
             return ArrayOrSingleValue(ret)
 
 
+def get_subsets(record, keys, inds):
+    """
+    turns:
+    [{"a": "Normalrillen-Schallplatte"},{"0": "(DE-588)4135113-7"},{"0": "(DE-627)105667471"},{"0": "(DE-576)209658037"},{"2": "gnd-carrier"}]
+    into:
+    {"a": "Normalrillen-Schallplatte",
+     "0": ["(DE-588)4135113-7", "(DE-627)105667471", "(DE-576)209658037"],
+     "2": "gnd-carrier"}
+     
+     record: pure marc record
+     keys: the keys to get, can be a single key or a list/set of keys
+     inds: to specifiy indicators. for all indicators, use '*', for multiple distinguished indicators, use a list/set
+           negate indicators with !
+    """
+    if isinstance(keys,str):
+        keys = [keys]
+    if isinstance(inds,str):
+        inds = [inds]
+    for key in keys:
+        marc_data = getmarc(record, key, None)
+        if isinstance(marc_data, dict):
+            marc_data = [marc_data]
+        if marc_data:
+            for indicator_level in marc_data:
+                for indicator, subfields in indicator_level.items():
+                    for ind in inds:
+                        if (not ind[0]=='!' and ind[1:] != indicator) and ( ind == "*" or ind==indicator or (ind[1] == '*' and ind[0] == indicator[0])):
+                            sset = {}
+                            for subfield in subfields:
+                                for k,v in subfield.items():
+                                    sset[k] = litter(sset.get(k),v)
+                            yield sset
+
+
 def getentity(record):
     """
     get the entity type of the described Thing in the record, based on the map_entity table
