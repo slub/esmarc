@@ -1,4 +1,4 @@
-from esmarc.marc import getmarc
+from esmarc.marc import getmarc, get_subsets
 from esmarc.lookup_tables.collections import lookup_coll, lookup_ssg_fid
 
 def getav_katalog(record, key, entity):
@@ -24,8 +24,7 @@ def getav_katalog(record, key, entity):
                     },
                     "availability": "https://katalog.slub-dresden.de/id/0-{}".format(swb_ppn)
                 })
-    if retOffers:
-        return retOffers
+    return retOffers if retOffers else None
 
 
 def get_accessmode(record, key, entity):
@@ -53,8 +52,7 @@ def get_physical(record, key, entity):
         value = getmarc(record, marc_key, entity)
         if value:
             data[key] = value
-    if data:
-        return data
+    return data if data else None
 
 
 def get_collection(record, keys, entity):
@@ -76,5 +74,26 @@ def get_collection(record, keys, entity):
                     if item in lookup_coll:
                         data.append({"preferredName": lookup_coll[item],
                                      "abbr": item})
-    if data:
-        return data
+    return data if data else None
+
+
+def get_usageInfo(record, keys, entity):
+    """
+    get the usage info of the resource
+    """
+    keymap = {"506": "accessState",
+              "540": "licenceState"}
+    data = []
+    for key_ind in keys:
+        key = key_ind.split('.')[0]
+        ind = key_ind.split('.')[1]
+        for sset in get_subsets(record, key, ind):
+            retObject = {"@type": keymap[key]}
+            if sset.get('a'):
+                retObject["name"] = sset['a']
+                retObject["alternateName"] = sset.get('f')
+            elif sset.get('f'):
+                retObject["name"] = sset['f']
+            retObject["sameAs"] = sset.get('u')
+            data.append(retObject)
+    return data if data else None

@@ -20,7 +20,7 @@ from esmarc.dates import handle_dateCreated, getdateModified, datePublished, dat
 from esmarc.coordinates import getGeoCoordinates, get_cartData
 from esmarc.helperfunc import get_source_include_str, setupoutput
 from esmarc.namings import getName, handle_preferredName_topic, handle_contributor, gettitle
-from esmarc.catalogue import getav_katalog, get_accessmode, get_physical, get_collection
+from esmarc.catalogue import getav_katalog, get_accessmode, get_physical, get_collection, get_usageInfo
 from esmarc.publisher import getpublisher
 from esmarc.classifications import  get_class
 from esmarc.language import get_language
@@ -84,7 +84,8 @@ entities = {
         "multi:partOfSeries": {get_partseries: ["776", "800", "810", "811", "830"]},
         "multi:isPartOf": {get_ispartof: ["245", "773"]},
         "multi:reproductionSeriesStatement": {get_reproductionSeriesStatement: "533..f"},
-        "multi:relations":  {get_relations: ["770", "772", "775", "776", "780", "785", "787"]}
+        "multi:relations":  {get_relations: ["770", "772", "775", "776", "780", "785", "787"]},
+        "multi:usageInfo": {get_usageInfo: ["506.*","540.__"]}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
