@@ -21,7 +21,7 @@ from esmarc.coordinates import getGeoCoordinates, get_cartData
 from esmarc.helperfunc import get_source_include_str, setupoutput
 from esmarc.namings import getName, handle_preferredName_topic, handle_contributor, gettitle
 from esmarc.catalogue import getav_katalog, get_accessmode, get_physical, get_collection, get_usageInfo
-from esmarc.publisher import getpublisher
+from esmarc.publisher import getpublisher, getoriginalPublisher, getPublishLocation
 from esmarc.classifications import  get_class
 from esmarc.language import get_language
 from esmarc.footnotes import get_footnotes
@@ -52,9 +52,6 @@ entities = {
         "single:title": {gettitle: ["130", "210", "240", "245", "246", "247", "249", "501", "505", "700", "710", "711", "730"]},
         "single:preferredName": {getName: ["245..a", "245..b"]},
         "multi:contributor":  {handle_contributor: ["100", "110", "111", "700", "710", "711"]},
-        "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
-        "single:datePublished": {datePublished: ["008", "533", "534", "264"]},
-        "single:dateOriginalPublished": {dateOriginalPublished: ["008", "533", "534", "264"]},
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:genre": {getgenre: "655..a"},
         "single:license": {getmarc: "540..a"},
@@ -85,7 +82,10 @@ entities = {
         "multi:isPartOf": {get_ispartof: ["245", "773"]},
         "multi:reproductionSeriesStatement": {get_reproductionSeriesStatement: "533..f"},
         "multi:relations":  {get_relations: ["770", "772", "775", "776", "780", "785", "787"]},
-        "multi:usageInfo": {get_usageInfo: ["506.*","540.__"]}
+        "multi:usageInfo": {get_usageInfo: ["506.*","540.__"]},
+        "multi:publisher": {getpublisher: ["533", "264"]},
+        "multi:originalPublisher": {getoriginalPublisher: ["533", "264"]},
+        "multi:location": {getPublishLocation: "751"}
         },
     "works": {
         "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
@@ -102,7 +102,6 @@ entities = {
         "multi:alternateName": {getmarc: ["400..t", "410..t", "411..t", "430..t", "240..a", "240..p", "246..a", "246..b", "245..p", "249..a", "249..b", "730..a", "730..p", "740..a", "740..p", "920..t"]},
         "multi:author": {get_subfield: "500"},
         "multi:contributor": {get_subfield: "700"},
-        "single:publisher": {getpublisher: ["260..a""260..b", "264..a", "264..b"]},
         "single:datePublished": {getmarc: ["130..f", "260..c", "264..c", "362..a"]},
         "single:Thesis": {getmarc: ["502..a", "502..b", "502..c", "502..d"]},
         "multi:issn": {getmarc: ["022..a", "022..y", "022..z", "029..a", "490..x", "730..x", "773..x", "776..x", "780..x", "785..x", "800..x", "810..x", "811..x", "830..x"]},
