@@ -22,6 +22,12 @@ def get_class(record, keys, entity):
     """
     data = []
 
+# if we use a dict from lookup tables as a stencil for a data structure and
+# not a reference, we need a complete copy of it and not just a reference.
+# if we use a reference, we would modify the original data structure from
+# the lookup table and make it garbage for further use. during runtime
+# thats why we use deepcopy()
+
     for key_ind in keys:  # "084.__"
         key = key_ind.split(".")[0]  # "084"
         ind = key_ind.split(".")[1]  # "__"
@@ -37,7 +43,6 @@ def get_class(record, keys, entity):
                 if entry:
                     if entry["CategoryCodes"][0].get("@id"):
                         entry["CategoryCodes"][0]["@id"] += sset['a']
-                    eprint(entry)
                     data = merge_entry(data,entry)
     return data if data else None
 
