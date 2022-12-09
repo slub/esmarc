@@ -1,8 +1,7 @@
-from rdflib import URIRef
-import traceback
-from multiprocessing import Pool, current_process
 import json
 import gzip
+import traceback
+from multiprocessing import Pool, current_process
 from es2json import ESGenerator, IDFile, eprint
 
 from esmarc import globals
@@ -38,8 +37,8 @@ from esmarc.editions import get_reproductionSeriesStatement, geteditionSequence,
 """
 
 entities = {
-    "resources": {   # mapping is 1:1 like works
-        "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
+    "resources": {
+        "single:@type": "http://schema.org/CreativeWork",
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "multi:identifier": {handle_identifier: "024"},
@@ -88,7 +87,7 @@ entities = {
         "multi:location": {getPublishLocation: "751"}
         },
     "works": {
-        "single:@type": [URIRef(u'http://schema.org/CreativeWork')],
+        "single:@type": "http://schema.org/CreativeWork",
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
@@ -121,7 +120,7 @@ entities = {
         "single:dateOfTermination": {endDate: "548^datb,dats"}
     },
     "persons": {
-        "single:@type": [URIRef(u'http://schema.org/Person')],
+        "single:@type": "http://schema.org/Person",
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
@@ -149,7 +148,7 @@ entities = {
         "single:deathDate": {endDate: "548^datl,datx"},
     },
     "organizations": {
-        "single:@type": [URIRef(u'http://schema.org/Organization')],
+        "single:@type": "http://schema.org/Organization",
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
@@ -172,7 +171,7 @@ entities = {
         "single:dateOfTermination": {endDate: "548^datb"}
     },
     "geo": {
-        "single:@type": [URIRef(u'http://schema.org/Place')],
+        "single:@type": "http://schema.org/Place",
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
@@ -192,7 +191,7 @@ entities = {
         "single:dateOfTermination": {endDate: "548^datb,dats"}
     },
     "topics": {
-        "single:@type": [URIRef(u'http://schema.org/Thing')],
+        "single:@type": "http://schema.org/Thing",
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
@@ -216,7 +215,7 @@ entities = {
         "single:dateOfTermination": {endDate: "548^datb"}
     },
     "events": {
-        "single:@type": [URIRef(u'http://schema.org/Event')],
+        "single:@type": "http://schema.org/Event",
         "single:@context": "https://raw.githubusercontent.com/slub/esmarc/master/conf/context.jsonld",
         "single:@id": {getid: "001"},
         "single:identifier": {getmarc: "001"},
