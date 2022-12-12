@@ -55,7 +55,7 @@ def get_mentions(record, keys, entity):
     data = []
 
     for key in keys:
-        for sset in get_subsets(record, key, '*' ):
+        for sset in get_subsets(record, key, '*'):
             obj = {}
             if key == "689":
                 if sset.get("5"):
