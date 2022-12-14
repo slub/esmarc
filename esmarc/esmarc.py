@@ -62,7 +62,7 @@ entities = {
         "multi:relatedTo": {relatedTo: "500..0"},
         "multi:about": {handle_about: ["936", "084", "083", "082", "655"]},
         "multi:description": {getmarc: ["520..a"]},
-        "multi:mentions": {get_mentions: ["610","611","630","648","650","651","653","655","689"]},
+        "multi:mentions": {get_mentions: ["600", "610","611","630","648","650","651","653","655","689"]},
         "multi:relatedEvent": {get_subfield: "711"},
         "single:physical_description": {get_physical: ["300","533"]},
         "multi:collection": {get_collection: ["084..a","935..a"]},

@@ -126,12 +126,18 @@ def get_mentions(record, keys, entity):
                     obj["name"] += " / {}".format(sset['p'])
                 if sset.get("n"):
                     obj["preferredName"] += " <{}>".format(sset['n'])
-                if sset.get("g"):
-                    obj["preferredName"] += " <{}>".format(sset['g'])
-            if sset.get('n') and (key in ("610","611","630") or (key == '689' and sset.get('D') and sset['D'] in ('b','u'))):
-                obj['position'] = sset['n']
+            if (key in ("630","650") or (key == "689" and sset.get('D') and sset['D'] in ('g', 'u', 's'))) and sset.get("g"):
+                obj["name"] += " <{}>".format(sset['g'])
+                obj["preferredName"] += " <{}>".format(sset['g'])
+            if sset.get('n') and (key in ("610","611","630") or (key == '689' and sset.get('D') and sset['D'] in ('b','u','f'))):
+                if sset['n'].startswith("("):
+                    obj['position'] = sset['n'][1:]
+                else:
+                    obj['position'] = sset['n']
             if sset.get('d') and (key in ("600","610","611") or (key == '689' and sset.get('D') and sset['D'] in ('f','n','p'))):
-                obj['date'] = sset['d']
+                if sset['d'].startswith("("):
+                    obj['date'] = sset['d'][1:]
+                else:obj['date'] = sset['d']
             if sset.get('g') and (key in ("610","611","630","650") or (key == '689' and sset.get('D') and sset['D'] in ('b','f','s','u'))):
                 obj['additionalInformation'] = sset['g']
             if obj not in data:
