@@ -95,7 +95,7 @@ def get_mentions(record, keys, entity):
                         obj["preferredName"] = item
                         obj["name"] = item
                         if obj not in data:
-                            data.append(obj)
+                            data.append(deepcopy(obj))
                     continue
             if key == "600":
                 if sset.get('b'):
