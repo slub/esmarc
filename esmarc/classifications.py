@@ -92,8 +92,8 @@ def get_mentions(record, keys, entity):
                 obj["name"] = sset['a']
             if key.startswith("65") and sset.get('a') and isinstance(sset.get('a'), list):
                 for item in sset['a']:
-                    obj["preferredName"] = sset['a']
-                    obj["name"] = sset['a']
+                    obj["preferredName"] = item
+                    obj["name"] = item
                     if obj not in data:
                         data.append(deepcopy(obj))
                 continue
