@@ -90,13 +90,13 @@ def get_mentions(record, keys, entity):
             if sset.get('a') and isinstance(sset.get('a'), str):
                 obj["preferredName"] = sset['a']
                 obj["name"] = sset['a']
-            if key.startswith("65") and sset.get('a') and isinstance(sset.get('a'), list):
-                for item in sset['a']:
-                    obj["preferredName"] = item
-                    obj["name"] = item
-                    if obj not in data:
-                        data.append(deepcopy(obj))
-                continue
+                if key.startswith("65") and isinstance(sset['a'], list):
+                    for item in sset['a']:
+                        obj["preferredName"] = item
+                        obj["name"] = item
+                        if obj not in data:
+                            data.append(deepcopy(obj))
+                    continue
             if key == "600":
                 if sset.get('b'):
                     obj["preferredName"] += " {}".format(sset['b'])
