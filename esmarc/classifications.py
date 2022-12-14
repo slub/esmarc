@@ -87,7 +87,7 @@ def get_mentions(record, keys, entity):
                                 obj["@id"] = "https://data.slub-dresden.de/{}/{}".format(map_fields[key]["@id"],item.split(")")[1])
                         if item.startswith("(DE-588"):
                             obj["sameAs"] = "https://d-nb.info/gnd/{}".format(item.split(")")[1])
-            if sset.get('a') and isinstance(sset.get('a'), str):
+            if sset.get('a'):
                 if key.startswith("65") and isinstance(sset['a'], list):
                     for item in sset['a']:
                         obj["preferredName"] = item
