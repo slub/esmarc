@@ -111,7 +111,7 @@ def get_mentions(record, keys, entity):
                 for char in ('n','d','c','e','g'):
                     if sset.get(char):
                         obj["preferredName"] += ", {}".format(sset[char])
-            if key == "630"or (key == "689" and sset.get('D') and sset['D'] == 'g'):
+            if key == "630"or (key == "689" and sset.get('D') and sset['D'] in ('g', 'u')):
                 if sset.get("p"):
                     obj["preferredName"] += " / {}".format(sset['p'])
                     obj["name"] += " / {}".format(sset['p'])
