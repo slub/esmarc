@@ -87,9 +87,16 @@ def get_mentions(record, keys, entity):
                                 obj["@id"] = "https://data.slub-dresden.de/{}/{}".format(map_fields[key]["@id"],item.split(")")[1])
                         if item.startswith("(DE-588"):
                             obj["sameAs"] = "https://d-nb.info/gnd/{}".format(item.split(")")[1])
-            if sset.get('a'):
+            if sset.get('a') and isinstance(sset.get('a'), str):
                 obj["preferredName"] = sset['a']
                 obj["name"] = sset['a']
+            if key.startswith("65") and sset.get('a') and isinstance(sset.get('a'), list):
+                for item in sset['a']:
+                    obj["preferredName"] = sset['a']
+                    obj["name"] = sset['a']
+                    if obj not in data:
+                        data.append(deepcopy(obj))
+                continue
             if key == "600":
                 if sset.get('b'):
                     obj["preferredName"] += " {}".format(sset['b'])
@@ -111,7 +118,7 @@ def get_mentions(record, keys, entity):
                 for char in ('n','d','c','e','g'):
                     if sset.get(char):
                         obj["preferredName"] += ", {}".format(sset[char])
-            if key == "630"or (key == "689" and sset.get('D') and sset['D'] in ('g', 'u')):
+            if key == "630" or (key == "689" and sset.get('D') and sset['D'] in ('g', 'u')):
                 if sset.get("p"):
                     obj["preferredName"] += " / {}".format(sset['p'])
                     obj["name"] += " / {}".format(sset['p'])
