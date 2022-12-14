@@ -88,15 +88,17 @@ def get_mentions(record, keys, entity):
                         if item.startswith("(DE-588"):
                             obj["sameAs"] = "https://d-nb.info/gnd/{}".format(item.split(")")[1])
             if sset.get('a') and isinstance(sset.get('a'), str):
-                obj["preferredName"] = sset['a']
-                obj["name"] = sset['a']
                 if key.startswith("65") and isinstance(sset['a'], list):
                     for item in sset['a']:
                         obj["preferredName"] = item
                         obj["name"] = item
-                        if obj not in data:
-                            data.append(deepcopy(obj))
+                        new_entry = deepcopy(obj)
+                        if new_entry not in data:
+                            data.append(new_entry)
                     continue
+                else:
+                    obj["preferredName"] = sset['a']
+                    obj["name"] = sset['a']
             if key == "600":
                 if sset.get('b'):
                     obj["preferredName"] += " {}".format(sset['b'])
