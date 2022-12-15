@@ -133,10 +133,14 @@ def get_mentions(record, keys, entity):
                 obj["name"] += " <{}>".format(sset['g'])
                 obj["preferredName"] += " <{}>".format(sset['g'])
             if sset.get('n') and (key in ("610","611","630") or (key == '689' and sset.get('D') and sset['D'] in ('b','u','f'))):
-                if sset['n'].startswith("("):
-                    obj['position'] = sset['n'][1:]
-                else:
-                    obj['position'] = sset['n']
+                obj['position'] = []
+                if isinstance(sset['n'],str):
+                    sset['n'] = [sset.pop('n')]
+                for item in sset['n']:
+                    if item.startswith("("):
+                        obj['position'].append(item[1:])
+                    else:
+                        obj['position'].append(item)
             if sset.get('d') and (key in ("600","610","611") or (key == '689' and sset.get('D') and sset['D'] in ('f','n','p'))):
                 if sset['d'].startswith("("):
                     obj['date'] = sset['d'][1:]
