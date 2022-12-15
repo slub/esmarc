@@ -198,7 +198,10 @@ def gettitle(record, keys, entity):
             else:
                 o_part_tit["preferredName"] = sset['a']
         if sset.get('v'):
-            o_part_tit["preferredName"] += " / {}".format(sset["v"])
+            if o_part_tit.get("preferredName"):
+                o_part_tit["preferredName"] += " / {}".format(sset["v"])
+            else:
+                o_part_tit["preferredName"] = sset["v"]
         if o_part_tit:
             title_obj["otherPartsTitle"] = litter(title_obj.get("otherPartsTitle"), o_part_tit)
 

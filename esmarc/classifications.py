@@ -1,4 +1,20 @@
-from esmarc.marc import getmarc
+from esmarc.marc import get_subsets
+from esmarc.lookup_tables.classifications import classifications
+from esmarc.lookup_tables.entities import map_fields, map_entities,  map_types_mentions
+from es2json import eprint
+from copy import deepcopy
+
+def merge_entry(data, entry):
+    if not data:
+        return [entry]
+    else:
+        for n,item in enumerate(data):
+            if entry["name"] == item["name"]:
+                if entry["CategoryCodes"][0] not in item["CategoryCodes"]:
+                    data[n]["CategoryCodes"].append(entry["CategoryCodes"][0])
+                return data
+        data.append(entry)
+        return data
 
 
 def get_class(record, keys, entity):
@@ -7,123 +23,130 @@ def get_class(record, keys, entity):
     """
     data = []
 
-    def merge_entry(data, entry):
-        if not data:
-            return [entry]
-        else:
-            for n,item in enumerate(data):
-                if entry["name"] == item["name"]:
-                    for sub_item in data[n]["CategoryCodes"]:
-                        if isinstance(sub_item, dict):
-                            if entry["CategoryCodes"][0]["codeValue"] == sub_item["codeValue"]:
-                                return data
-                        elif isinstance(sub_item,list):
-                            for sub_sub_item in sub_item:
-                                if entry["CategoryCodes"][0]["codeValue"] == sub_sub_item["codeValue"]:
-                                    return data
-                    data[n]["CategoryCodes"].append(entry["CategoryCodes"][0])
-                    return data
-            data.append(entry)
-            return data
-        
+# if we use a dict from lookup tables as a stencil for a data structure and
+# not a reference, we need a complete copy of it and not just a reference.
+# if we use a reference, we would modify the original data structure from
+# the lookup table and make it garbage for further use. during runtime
+# thats why we use deepcopy()
+
+    for key_ind in keys:  # "084.__"
+        key = key_ind.split(".")[0]  # "084"
+        ind = key_ind.split(".")[1]  # "__"
+        for sset in get_subsets(record, key, ind):
+            if sset.get('a'):
+                if isinstance(sset['a'],str):
+                    sset['a'] = [sset.pop('a')]
+                for item in sset['a']:
+                    entry = None
+                    if key_ind in classifications:
+                        entry = deepcopy(classifications[key_ind])
+                        entry["CategoryCodes"][0]["codeValue"] = item
+                    elif sset.get('2') in classifications:
+                        entry = deepcopy(classifications[sset['2']])
+                        entry["CategoryCodes"][0]["codeValue"] = item
+                    if entry:
+                        if entry["CategoryCodes"][0].get("@id"):
+                            entry["CategoryCodes"][0]["@id"] += item
+                        data = merge_entry(data,entry)
+    return data if data else None
+
+
+def get_mentions(record, keys, entity):
+    """
+    creates the mentions array out of different MARC21 Fields
+    """
+    data = []
+
     for key in keys:
-        marc_data = getmarc(record, key, entity)
-        if marc_data:
-            if isinstance(marc_data, dict):
-                marc_data = [marc_data]
-            if key == "050":
-                entry = {"@type": "CategoryCodeSet",
-                         "@id": "https://id.loc.gov/authorities/classification",
-                         "name": "Library of Congress Classification",
-                         "alternateName": "LCC",
-                         "sameAs": "https://wikidata.org/wiki/Q621080",
-                         "CategoryCodes": []}
-                for item in marc_data:
-                    if "_0" in item and "a" in item["_0"][0]:
-                        sub_entry = {"@type": "CategoryCode",
-                                     "@id": "https://id.loc.gov/authorities/classification/",
-                                     "codeValue": None}
-                        sub_entry["@id"] += item["_0"][0]['a']
-                        sub_entry["codeValue"] = item["_0"][0]['a']
-                        entry["CategoryCodes"].append(sub_entry)
-                if entry["CategoryCodes"]:
-                    data.append(entry)
-            if key == "082":
-                for item in marc_data:
-                    if "0_" in item and "a" in item["0_"][0]:
-                        entry = {"@type": "CategoryCodeSet",
-                                 "name": "Dewey Decimal Classification",
-                                 "alternateName": "DDC",
-                                 "sameAs": "http://www.wikidata.org/wiki/Q48460",
-                                 "CategoryCodes": [{"@type": "CategoryCode",
-                                                  "codeValue": item["0_"][0]['a']}]}
-                        data = merge_entry(data, entry)
-                    if "04" in item and "a" in item["04"][0]:
-                        entry = {"@type": "CategoryCodeSet",
-                                 "name": "DDC-Sachgruppen der DNB ab 2004",
-                                 "alternateName": ["Sachgruppen der DNB ab 2004", "SDNB ab 2004", "Systematik der Deutschen Nationalbibliografie ab 2004", "DNB-Sachgruppen ab 2004", "Sachgruppen der Deutschen Nationalbibliografie ab 2004"],
-                                 "sameAs": "https://www.wikidata.org/wiki/Q67011877",
-                                 "CategoryCodes": [{"@type": "CategoryCode",
-                                                    "codeValue": item["04"][0]['a']}]}
-                        data = merge_entry(data, entry)
-            if key == "084":
-                for item in marc_data:
-                    ind_object = {}
-                    for k,v in item.items():
-                        ind_object[k] = {}
-                        for items in v:
-                            for subf, val in items.items():
-                                ind_object[k][subf] = val
-                    if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "ssgn":
-                        entry = {"@type": "CategoryCodeSet",
-                                 "name": "Sondersammelgebiets-Nummer",
-                                 "alternateName": ["SSG", "SSGN"],
-                                 "sameAs": "https://www.wikidata.org/wiki/Q71786666",
-                                 "CategoryCodes": [{"@type": "CategoryCode",
-                                                    "codeValue": ind_object["__"]['a']}]}
-                        data = merge_entry(data, entry)
-                    if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "sdnb":
-                        entry = {"@type": "CategoryCodeSet",
-                                 "name": "Sachgruppen der DNB bis 2003",
-                                 "alternateName": ["SDNB bis 2003", "Systematik der Deutschen Nationalbibliografie bis 2003", "DNB-Sachgruppen bis 2003", "Sachgruppen der Deutschen Nationalbibliografie bis 2003"],
-                                 "sameAs": "https://www.wikidata.org/wiki/Q113660734",
-                                 "CategoryCodes": [{"@type": "CategoryCode",
-                                                    "codeValue": ind_object["__"]['a']}]}
-                        data = merge_entry(data, entry)
-                    if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "fid":
-                        entry = {"@type": "CategoryCodeSet",
-                                 "name":  "Kennzeichen der DFG geförderten Fachinformationsdienste für die Wissenschaft",
-                                 "alternateName": ["FID", "FID Kennzeichen"],
-                                 "sameAs": "http://wikis.sub.uni-hamburg.de/webis/index.php/Webis_-_Sammelschwerpunkte_an_deutschen_Bibliotheken",
-                                 "CategoryCodes": [{"@type": "CategoryCode",
-                                                    "codeValue": ind_object["__"]['a']}]}
-                        data = merge_entry(data, entry)
-                    if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "fid":
-                        entry = {"@type": "CategoryCodeSet",
-                                 "name":  "Kennzeichen der DFG geförderten Fachinformationsdienste für die Wissenschaft",
-                                 "alternateName": ["FID", "FID Kennzeichen"],
-                                 "sameAs": "http://wikis.sub.uni-hamburg.de/webis/index.php/Webis_-_Sammelschwerpunkte_an_deutschen_Bibliotheken",
-                                 "CategoryCodes": [{"@type": "CategoryCode",
-                                                    "codeValue": ind_object["__"]['a']}]}
-                        data = merge_entry(data, entry)
-                    if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "bkl":
-                        entry = {"@type": "CategoryCodeSet",
-                                 "@id": "http://uri.gbv.de/terminology/bk/",
-                                 "name":  "Basisklassifikation",
-                                 "alternateName": ["BKL", "BK"],
-                                 "sameAs": "https://www.wikidata.org/wiki/Q29938469",
-                                 "CategoryCodes": [{"@type": "CategoryCode",
-                                                    "@id": "http://uri.gbv.de/terminology/bk/{}".format(ind_object["__"]['a']),
-                                                    "codeValue": ind_object["__"]['a']}]}
-                        data = merge_entry(data, entry)
-                    if "__" in ind_object and "a" in ind_object["__"] and ind_object["__"].get("2") == "rvk":
-                        entry = {"@type": "CategoryCodeSet",
-                                 "@id": "https://rvk.uni-regensburg.de/regensburger-verbundklassifikation-online",
-                                 "name":  "Regensburger Verbundklassifikation",
-                                 "alternateName": ["RVK", "Regensburger Systematik", "RVKO", "Regensburg RVK", "Regensburg Classification" ],
-                                 "sameAs": "http://www.wikidata.org/wiki/Q2137453",
-                                 "CategoryCodes": [{"@type": "CategoryCode",
-                                                    "@id": "https://rvk.uni-regensburg.de/regensburger-verbundklassifikation-online#notation/{}".format(ind_object["__"]['a']),
-                                                    "codeValue": ind_object["__"]['a']}]}
-                        data = merge_entry(data, entry)
+        for sset in get_subsets(record, key, '*'):
+            obj = {}
+            if key == "689":
+                if sset.get("5"):
+                    continue
+                if sset.get('A') and sset['A'] == 'z':
+                    obj["@type"] = "ChronologicalSubject"
+                elif sset.get('D'):
+                    obj["@type"] = map_types_mentions[sset['D']]
+                    if sset.get('0'):
+                        if isinstance(sset['0'],str):
+                            sset['0'] = [sset.pop('0')]
+                        for item in sset['0']:
+                            if item.startswith("(DE-627") and sset.get('D') in map_entities:
+                                obj["@id"] = "https://data.slub-dresden.de/{}/{}".format(map_entities[sset['D']],item.split(")")[1])
+                            if item.startswith("(DE-588"):
+                                obj["sameAs"] = "https://d-nb.info/gnd/{}".format(item.split(")")[1])
+            if key in map_fields:
+                obj["@type"] = map_fields[key]["@type"]
+                if key in ("610","611") and (sset.get("c") or sset.get("d")):
+                    obj["@type"] = "Event"
+                if sset.get('0'):
+                    if isinstance(sset['0'],str):
+                        sset['0'] = [sset.pop('0')]
+                    for item in sset['0']:
+                        if item.startswith("(DE-627"):
+                            if key in ("610","611") and (sset.get("c") or sset.get("d")):
+                                obj["@id"] = "https://data.slub-dresden.de/events/{}".format(item.split(")")[1])
+                            elif map_fields[key].get("@id"):
+                                obj["@id"] = "https://data.slub-dresden.de/{}/{}".format(map_fields[key]["@id"],item.split(")")[1])
+                        if item.startswith("(DE-588"):
+                            obj["sameAs"] = "https://d-nb.info/gnd/{}".format(item.split(")")[1])
+            if sset.get('a'):
+                if key.startswith("65") and isinstance(sset['a'], list):
+                    for item in sset['a']:
+                        obj["preferredName"] = item
+                        obj["name"] = item
+                        new_entry = deepcopy(obj)
+                        if new_entry not in data:
+                            data.append(new_entry)
+                    continue
+                else:
+                    obj["preferredName"] = sset['a']
+                    obj["name"] = sset['a']
+            if key == "600":
+                if sset.get('b'):
+                    obj["preferredName"] += " {}".format(sset['b'])
+                    obj["name"] += " {}".format(sset['b'])
+                if sset.get('c'):
+                    obj["preferredName"] += ", {}".format(sset['c'])
+                    obj["name"] += ", {}".format(sset['c'])
+                if sset.get('d'):
+                    obj["preferredName"] += " ({})".format(sset['d'])
+            if obj.get("@type") == "Organisation":
+                if sset.get('b'):
+                    obj["preferredName"] += ", {}".format(sset['b'])
+                    obj["name"] += ", {}".format(sset['b'])
+                if sset.get('g'):
+                    obj["preferredName"] += ", {}".format(sset['g'])
+                if sset.get('e'):
+                    obj["name"] += ", {}".format(sset['e'])
+            if obj.get("@type") == "Event":
+                for char in ('n','d','c','e','g'):
+                    if sset.get(char):
+                        obj["preferredName"] += ", {}".format(sset[char])
+            if key == "630" or (key == "689" and sset.get('D') and sset['D'] in ('g', 'u')):
+                if sset.get("p"):
+                    obj["preferredName"] += " / {}".format(sset['p'])
+                    obj["name"] += " / {}".format(sset['p'])
+                if sset.get("n"):
+                    obj["preferredName"] += " <{}>".format(sset['n'])
+            if (key in ("630","650") or (key == "689" and sset.get('D') and sset['D'] in ('g', 'u', 's'))) and sset.get("g"):
+                obj["name"] += " <{}>".format(sset['g'])
+                obj["preferredName"] += " <{}>".format(sset['g'])
+            if sset.get('n') and (key in ("610","611","630") or (key == '689' and sset.get('D') and sset['D'] in ('b','u','f'))):
+                obj['position'] = []
+                if isinstance(sset['n'],str):
+                    sset['n'] = [sset.pop('n')]
+                for item in sset['n']:
+                    if item.startswith("("):
+                        obj['position'].append(item[1:])
+                    else:
+                        obj['position'].append(item)
+            if sset.get('d') and (key in ("600","610","611") or (key == '689' and sset.get('D') and sset['D'] in ('f','n','p'))):
+                if sset['d'].startswith("("):
+                    obj['date'] = sset['d'][1:]
+                else:obj['date'] = sset['d']
+            if sset.get('g') and (key in ("610","611","630","650") or (key == '689' and sset.get('D') and sset['D'] in ('b','f','s','u'))):
+                obj['additionalInformation'] = sset['g']
+            if obj not in data:
+                data.append(obj)
     return data if data else None
