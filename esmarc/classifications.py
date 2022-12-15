@@ -34,17 +34,20 @@ def get_class(record, keys, entity):
         ind = key_ind.split(".")[1]  # "__"
         for sset in get_subsets(record, key, ind):
             if sset.get('a'):
-                entry = None
-                if key_ind in classifications:
-                    entry = deepcopy(classifications[key_ind])
-                    entry["CategoryCodes"][0]["codeValue"] = sset['a']
-                elif sset.get('2') in classifications:
-                    entry = deepcopy(classifications[sset['2']])
-                    entry["CategoryCodes"][0]["codeValue"] = sset['a']
-                if entry:
-                    if entry["CategoryCodes"][0].get("@id"):
-                        entry["CategoryCodes"][0]["@id"] += sset['a']
-                    data = merge_entry(data,entry)
+                if isinstance(sset['a'],str):
+                    sset['a'] = [sset.pop('a')]
+                for item in sset['a']:
+                    entry = None
+                    if key_ind in classifications:
+                        entry = deepcopy(classifications[key_ind])
+                        entry["CategoryCodes"][0]["codeValue"] = item
+                    elif sset.get('2') in classifications:
+                        entry = deepcopy(classifications[sset['2']])
+                        entry["CategoryCodes"][0]["codeValue"] = item
+                    if entry:
+                        if entry["CategoryCodes"][0].get("@id"):
+                            entry["CategoryCodes"][0]["@id"] += item
+                        data = merge_entry(data,entry)
     return data if data else None
 
 
@@ -108,7 +111,7 @@ def get_mentions(record, keys, entity):
                     obj["name"] += ", {}".format(sset['c'])
                 if sset.get('d'):
                     obj["preferredName"] += " ({})".format(sset['d'])
-            if obj["@type"] == "Organisation":
+            if obj.get("@type") == "Organisation":
                 if sset.get('b'):
                     obj["preferredName"] += ", {}".format(sset['b'])
                     obj["name"] += ", {}".format(sset['b'])
@@ -116,7 +119,7 @@ def get_mentions(record, keys, entity):
                     obj["preferredName"] += ", {}".format(sset['g'])
                 if sset.get('e'):
                     obj["name"] += ", {}".format(sset['e'])
-            if obj["@type"] == "Event":
+            if obj.get("@type") == "Event":
                 for char in ('n','d','c','e','g'):
                     if sset.get(char):
                         obj["preferredName"] += ", {}".format(sset[char])
