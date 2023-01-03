@@ -158,7 +158,7 @@ def relatedTo(jline, key, entity):
                     if sset.get("0"):
                         uri = gnd2uri(sset.get("0"))
                         if isinstance(uri, str) and uri.startswith(globals.base_id):
-                            node["@id"] = id2uri(sset.get("0"), entityType)
+                            node["@id"] = id2uri(sset.get("0"), entityType, globals.base_id)
                         elif isinstance(uri, str) and uri.startswith("http") and not uri.startswith(globals.base_id):
                             node["sameAs"] = uri
                         elif isinstance(uri, str):
@@ -169,7 +169,7 @@ def relatedTo(jline, key, entity):
                             for elem in uri:
                                 if elem and isinstance(elem, str) and elem.startswith(globals.base_id):
                                     node["@id"] = id2uri(
-                                        elem.split("=")[-1], entityType)
+                                        elem.split("=")[-1], entityType, globals.base_id)
                                 elif elem and isinstance(elem, str) and elem.startswith("http") and not elem.startswith(globals.base_id):
                                     node["sameAs"] = litter(
                                         node["sameAs"], elem)
@@ -194,7 +194,7 @@ def relatedTo(jline, key, entity):
                     if sset.get("0"):
                         uri = gnd2uri(sset.get("0"))
                         if isinstance(uri, str) and uri.startswith(globals.base_id):
-                            node["@id"] = id2uri(sset.get("0"), entityType)
+                            node["@id"] = id2uri(sset.get("0"), entityType, globals.base_id)
                         elif isinstance(uri, str) and uri.startswith("http") and not uri.startswith(globals.base_id):
                             node["sameAs"] = uri
                         elif isinstance(uri, str):
@@ -205,7 +205,7 @@ def relatedTo(jline, key, entity):
                             for elem in uri:
                                 if elem and elem.startswith(globals.base_id):
                                     node["@id"] = id2uri(
-                                        elem.split("=")[-1], entityType)
+                                        elem.split("=")[-1], entityType, globals.base_id)
                                 elif elem and elem.startswith("http") and not elem.startswith(globals.base_id):
                                     node["sameAs"] = litter(
                                         node["sameAs"], elem)
