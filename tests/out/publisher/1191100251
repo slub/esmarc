@@ -1,0 +1,11 @@
+{"publisher":
+    {
+    "@type": "Organization",
+    "name": "Nauck'sche Buchdruckerei",
+    "location":
+        {
+        "@type": "Place",
+        "name": "Berlin"
+        }
+    }
+}

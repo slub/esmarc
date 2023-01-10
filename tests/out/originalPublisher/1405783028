@@ -1,0 +1,12 @@
+{
+"originalPublisher":
+    {
+    "@type": "Organization",
+    "name": "Impensis Theobaldi Schönwetteri",
+    "location":
+        {
+        "@type": "Place",
+        "name": "Francofurti"
+        }
+    }
+}

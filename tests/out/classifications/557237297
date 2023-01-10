@@ -1,0 +1,101 @@
+{
+  "classifications": [
+    {
+      "@type": "CategoryCode",
+      "@id": "https://id.loc.gov/authorities/classification/KK2854",
+      "codeValue": "KK2854",
+      "inCodeSet": {
+        "@type": "CategoryCodeSet",
+        "@id": "https://id.loc.gov/authorities/classification",
+        "alternateName": "LCC",
+        "name": "Library of Congress Classification",
+        "sameAs": "https://www.wikidata.org/wiki/Q621080"
+      }
+    },
+    {
+      "@type": "CategoryCode",
+      "codeValue": "340",
+      "inCodeSet": {
+        "@type": "CategoryCodeSet",
+        "name": "Dewey Decimal Classification",
+        "alternateName": "DDC",
+        "sameAs": "http://www.wikidata.org/entity/Q48460"
+      }
+    },
+    {
+      "@type": "CategoryCode",
+      "codeValue": "340",
+      "inCodeSet": {
+        "@type": "CategoryCodeSet",
+        "name": "DDC-Sachgruppen bis 2003",
+        "alternateName": [
+          "Sachgruppen der DNB bis 2003",
+          "SDNB bis 2003",
+          "Systematik der Deutschen Nationalbibliografie bis 2003",
+          "DNB-Sachgruppen bis 2003",
+          "Sachgruppen der Deutschen Nationalbibliografie bis 2003"
+        ],
+        "sameAs": "https://www.wikidata.org/wiki/Q113660734"
+      }
+    },
+    {
+      "@type": "CategoryCode",
+      "codeValue": "2",
+      "inCodeSet": {
+        "@type": "CategoryCodeSet",
+        "name": "Sondersammelgebiets-Nummer",
+        "alternateName": [
+          "SSG",
+          "SSGN"
+        ],
+        "sameAs": "https://www.wikidata.org/entity/Q71786666"
+      }
+    },
+    {
+      "@type": "CategoryCode",
+      "codeValue": "INTRECHT",
+      "inCodeSet": {
+        "@type": "CategoryCodeSet",
+        "name": "Kennzeichen der DFG geförderten Fachinformationsdienste für die Wissenschaft",
+        "alternateName": [
+          "FID",
+          "FID Kennzeichen"
+        ],
+        "sameAs": "http://wikis.sub.uni-hamburg.de/webis/index.php/Webis_-_Sammelschwerpunkte_an_deutschen_Bibliotheken"
+      }
+    },
+    {
+      "@type": "CategoryCode",
+      "@id": "https://rvk.uni-regensburg.de/regensburger-verbundklassifikation-online#notation/PF 250",
+      "codeValue": "PF 250",
+      "inCodeSet": {
+        "@type": "CategoryCodeSet",
+        "@id": "https://rvk.uni-regensburg.de/regensburger-verbundklassifikation-online",
+        "name": "Regensburger Verbundklassifikation",
+        "alternateName": [
+          "RVK",
+          "Regensburger Systematik",
+          "RVKO",
+          "Regensburg RVK",
+          "Regensburg Classification"
+        ],
+        "sameAs": "https://www.wikidata.org/entity/Q2137453"
+      }
+    },
+    {
+      "@type": "CategoryCode",
+      "@id": "http://uri.gbv.de/terminology/bk/86.74",
+      "codeValue": "86.74",
+      "inCodeSet": {
+        "@type": "CategoryCodeSet",
+        "@id": "http://uri.gbv.de/terminology/bk/",
+        "name": "Basisklassifikation",
+        "alternateName": [
+          "BKL",
+          "BK"
+        ],
+        "sameAs": "https://www.wikidata.org/entity/Q29938469"
+      }
+    }
+  ]
+}

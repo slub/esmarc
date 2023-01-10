@@ -1,0 +1,11 @@
+{"originalPublisher":
+    {
+    "@type": "Organization",
+    "name": "gedruckt in der Königl. Hoff- und Academischen Buchdruckerey",
+    "location":
+        {
+        "@type": "Place",
+        "name": "Königsberg"
+        }
+    }
+}
