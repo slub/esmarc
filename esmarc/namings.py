@@ -51,6 +51,9 @@ def handle_preferredName_topic(record, key, entity):
 
 
 def handle_contributor(record, keys, entity):
+    """
+    creates an contributor object out of 110,111,710,711 fields
+    """
     retObj = []
     for key in keys:
         for sset in get_subsets(record, key, '*'):
