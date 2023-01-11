@@ -1,0 +1,24 @@
+{"mentions":[
+    {
+        "@type":"Event",
+        "preferredName":"Lutheran World Federation, (5th, 1970, Evian-les-Bains, France)",
+        "name": "Lutheran World Federation",
+        "position": ["5th"],
+        "date": "1970"
+        },
+     {
+        "@type":"Genre" ,
+        "@id": "https://data.slub-dresden.de/topics/826484824",
+        "preferredName":"Konferenzschrift",
+        "name": "Konferenzschrift",
+        "sameAs": "https://d-nb.info/gnd/1071861417"
+        },
+    {
+        "@type":"Event" ,
+        "@id": "https://data.slub-dresden.de/events/496846981",
+     "preferredName":"Lutherischer Weltbund, 5., 1970, Evian-les-Bains, Vollversammlung",
+        "name": "Lutherischer Weltbund",
+        "position": ["5."],
+        "date": "1970",
+        "sameAs": "https://d-nb.info/gnd/7586701-1"}
+]}

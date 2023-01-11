@@ -1,0 +1,10 @@
+{"publisher":
+    {
+    "@type": "Organization",
+    "name": "SLUB",
+    "location":
+        {
+        "@type": "Place",
+        "name": "Dresden"
+        }
+    }}

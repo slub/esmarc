@@ -38,14 +38,15 @@ setup(name='esmarc',
       },
       install_requires=[
           'argparse>=1.4.0',
-          'elasticsearch>=5.0.0',
-          'rdflib>=4.2.2',
-          'dateparser'
+          'elasticsearch>=7.0.0',
+          'dateparser',
+          'urllib3',
+          'es2json'
       ],
       python_requires=">=3.5.*",
       entry_points={
           "console_scripts": [
-              "esmarc=esmarc.esmarc:cli",
+              "esmarc=esmarc.cli:cli",
               "wikidata.py=enrichment.wikidata:run",
               "wikipedia.py=enrichment.wikipedia:run",
               "wikipedia_categories.py=enrichment.wikipedia_categories:run",
