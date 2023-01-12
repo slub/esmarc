@@ -84,6 +84,7 @@ entities = {
         "multi:usageInfo": {get_usageInfo: ["506.*","540.__"]},
         "multi:publisher": {getpublisher: ["533", "264"]},
         "multi:originalPublisher": {getoriginalPublisher: ["533", "264"]},
+        "single:datePublished": {datePublished: ["008", "533", "534", "264"]},
         "multi:location": {getPublishLocation: "751"}
         },
     "works": {
