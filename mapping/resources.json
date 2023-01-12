@@ -2,7 +2,7 @@
       "properties": {
         "datePublished": {
           "properties": {
-            "@value": {
+            "dateParsed": {
               "type": "date"
               },
             "description": {
