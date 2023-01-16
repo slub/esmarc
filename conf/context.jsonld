@@ -13,7 +13,7 @@
 	"dateOfEstablishment": "dnb:dateOfEstablishment",
 	"periodOfActivityStart": "dnb:dateOfTermination",
 	"periodOfActivityEnd": "dnb:dateOfEstablishment",
-        "physical_details: "dct:format",
+        "physical_details": "dct:format",
         "extent": "dct:format",
         "dimensions": "dct:format",
         "accompanying_material": "dct:format",
