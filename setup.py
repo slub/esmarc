@@ -41,7 +41,7 @@ setup(name='esmarc',
           'elasticsearch>=7.0.0,<8.0.0',
           'dateparser',
           'urllib3',
-          'es2json'
+          'es2json @ git+https://github.com/slub/es2json.git'
       ],
       python_requires=">=3.5.*",
       entry_points={
