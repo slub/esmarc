@@ -43,7 +43,7 @@ setup(name='esmarc',
           'urllib3',
           'es2json @ git+https://github.com/slub/es2json.git'
       ],
-      python_requires=">=3.5.*",
+      python_requires=">=3.5,<4",
       entry_points={
           "console_scripts": [
               "esmarc=esmarc.cli:cli",
