@@ -65,11 +65,7 @@ def marc_dates(record, entity, event, datekey_list):
                 return ret
             elif ret.get("description"):
                 ret.pop("@value")
-                if "-" in ret["description"]:
-                    if event == "startDate" and ret["description"].split("-")[0]:
-                        return ret
-                    elif event == "endDate" and ret["description"].split("-")[1]:
-                        return ret
+                return ret
     return None
 
 
