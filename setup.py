@@ -16,6 +16,7 @@ setup(name='esmarc',
       license="Apache 2.0",
       packages=[
           'esmarc',
+          'esmarc.lookup_tables',
           'swb_fix',
           'wikidata',
           'wikipedia',
@@ -23,6 +24,7 @@ setup(name='esmarc',
           'geonames',
           'gnd_sachgruppen',
           'entityfacts',
+          'mapping',
           'enrichment'
       ],
       package_dir={
